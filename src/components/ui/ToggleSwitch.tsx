@@ -16,8 +16,8 @@ export function ToggleSwitch({ defaultChecked = false }: { defaultChecked?: bool
       }`}
     >
       <span
-        className={`absolute top-0.5 h-4.5 w-4.5 rounded-full transition-transform ${
-          checked ? "translate-x-5 bg-secondary" : "translate-x-0.5 bg-on-surface-variant"
+        className={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full transition-transform ${
+          checked ? "translate-x-5 bg-secondary" : "translate-x-0 bg-on-surface-variant"
         }`}
         style={{ height: "1.125rem", width: "1.125rem" }}
       />

@@ -1,5 +1,6 @@
 import type {
   Agency,
+  BlogPost,
   CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
@@ -22,6 +23,9 @@ import type {
 export interface DataRepository {
   listTours(filters?: TourFilters): Promise<Tour[]>;
   getTourById(id: string): Promise<Tour | null>;
+
+  listBlogPosts(): Promise<BlogPost[]>;
+  getBlogPostById(id: string): Promise<BlogPost | null>;
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]>;
   getRequestById(id: string): Promise<TeklifTalebi | null>;

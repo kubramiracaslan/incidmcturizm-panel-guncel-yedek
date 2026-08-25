@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { Icon } from "@/components/ui/Icon";
+import { UserMenu } from "./UserMenu";
 import type { AuthUser } from "@/lib/types";
 
 interface TopBarProps {
@@ -54,19 +54,7 @@ export function TopBar({ title, user, searchPlaceholder, onMenuClick }: TopBarPr
           >
             <Icon name="mail" />
           </button>
-          <div className="ml-1 flex items-center gap-2 sm:ml-2">
-            <div className="h-8 w-8 overflow-hidden rounded-full border border-outline-variant/50">
-              <Image
-                src={user.avatarUrl}
-                alt={user.name}
-                width={32}
-                height={32}
-                className="h-full w-full object-cover"
-                unoptimized
-              />
-            </div>
-            <span className="hidden text-body-md text-on-surface md:inline">{user.name}</span>
-          </div>
+          <UserMenu user={user} />
         </div>
       </div>
     </header>

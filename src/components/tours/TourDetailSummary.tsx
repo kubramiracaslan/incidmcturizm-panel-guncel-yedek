@@ -44,7 +44,7 @@ export function TourDetailSummary({ tour }: { tour: Tour }) {
               KONTENJAN
             </div>
             <div className="text-headline-md font-headline-md font-bold text-on-surface">
-              {tour.capacity} Kişi
+              {tour.capacity != null ? `${tour.capacity} Kişi` : "—"}
             </div>
           </div>
         </div>

@@ -8,7 +8,6 @@ import type { AuthUser } from "@/lib/types";
 
 interface PanelShellProps {
   brandName: string;
-  panelLabel: string;
   navItems: NavItem[];
   ctaHref: string;
   ctaLabel: string;
@@ -20,7 +19,6 @@ interface PanelShellProps {
 
 export function PanelShell({
   brandName,
-  panelLabel,
   navItems,
   ctaHref,
   ctaLabel,
@@ -35,7 +33,6 @@ export function PanelShell({
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <Sidebar
         brandName={brandName}
-        panelLabel={panelLabel}
         navItems={navItems}
         ctaHref={ctaHref}
         ctaLabel={ctaLabel}

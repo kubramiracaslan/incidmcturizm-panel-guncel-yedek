@@ -19,7 +19,6 @@ export async function AgentShell({ title, children }: AgentShellProps) {
   return (
     <PanelShell
       brandName="İnci DMC Turizm"
-      panelLabel="Acente Paneli"
       navItems={agentNavItems}
       ctaHref="/agent/tur-katalogu"
       ctaLabel="Yeni Talep Oluştur"

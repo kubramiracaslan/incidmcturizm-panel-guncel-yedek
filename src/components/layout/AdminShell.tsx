@@ -19,7 +19,6 @@ export async function AdminShell({ title, children }: AdminShellProps) {
   return (
     <PanelShell
       brandName="İnci DMC Turizm"
-      panelLabel="Admin Paneli"
       navItems={adminNavItems}
       ctaHref="/admin/turlar"
       ctaLabel="Yeni Tur Ekle"

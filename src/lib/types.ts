@@ -29,12 +29,30 @@ export interface Tour {
   days: number;
   startingPrice: number;
   currency: Currency;
-  capacity: number;
+  capacity?: number;
   themes: string[];
   highlights: TourHighlight[];
   includes: string[];
   excludes: string[];
   importantNotes: string[];
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  categoryName: string;
+  heroImage: string;
+  publishedAt: string; // ISO datetime
+  readTime: number;
+  authorName: string;
+  authorTitle: string;
+  authorImage: string | null;
+  tags: string[];
+  contentHtml: string;
+  isPublished: boolean;
+  isFeatured: boolean;
 }
 
 export type RequestStatus =

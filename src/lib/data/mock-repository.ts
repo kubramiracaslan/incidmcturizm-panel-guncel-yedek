@@ -1,5 +1,6 @@
 import type {
   Agency,
+  BlogPost,
   CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
@@ -63,6 +64,14 @@ export class MockDataRepository implements DataRepository {
 
   async getTourById(id: string): Promise<Tour | null> {
     return findMockTourById(id) ?? null;
+  }
+
+  async listBlogPosts(): Promise<BlogPost[]> {
+    return [];
+  }
+
+  async getBlogPostById(): Promise<BlogPost | null> {
+    return null;
   }
 
   async listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

@@ -4,12 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Icon } from "@/components/ui/Icon";
-import { LogoutButton } from "./LogoutButton";
 import type { NavItem } from "@/lib/nav";
 
 interface SidebarProps {
   brandName: string;
-  panelLabel: string;
   navItems: NavItem[];
   ctaHref: string;
   ctaLabel: string;
@@ -19,7 +17,6 @@ interface SidebarProps {
 
 export function Sidebar({
   brandName,
-  panelLabel,
   navItems,
   ctaHref,
   ctaLabel,
@@ -44,18 +41,15 @@ export function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-8 flex items-center gap-3 px-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary-container shadow-[0_0_15px_rgba(165,207,194,0.1)]">
-            <Image src="/logo.png" alt={brandName} width={40} height={40} className="h-full w-full object-cover" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-headline-md font-headline-md font-bold leading-tight tracking-tight text-primary">
-              {brandName}
-            </h1>
-            <p className="mt-0.5 text-label-sm font-label-sm uppercase text-on-surface-variant">
-              {panelLabel}
-            </p>
-          </div>
+        <div className="mb-8 px-6">
+          <Image
+            src="/logo-wordmark-v2.png"
+            alt={brandName}
+            width={1154}
+            height={223}
+            className="h-9 w-auto object-contain"
+            priority
+          />
         </div>
 
         <div className="mb-6 px-4">
@@ -104,7 +98,6 @@ export function Sidebar({
             <Icon name="help" />
             <span className="text-label-sm font-label-sm">Destek</span>
           </Link>
-          <LogoutButton />
         </div>
       </nav>
     </>

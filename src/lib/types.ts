@@ -55,6 +55,83 @@ export interface BlogPost {
   isFeatured: boolean;
 }
 
+export interface HomeLogoSettings {
+  logoUrl: string | null;
+}
+
+export interface HomeHeroSettings {
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+}
+
+export interface FeaturedSectionSettings {
+  title: string;
+  subtitle: string;
+  description: string;
+  isActive: boolean;
+}
+
+export interface SiteService {
+  id: string;
+  name: string;
+  shortDescription: string;
+  longDescription: string;
+  iconSvg: string;
+  imageUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface HomeMapSettings {
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+}
+
+export interface MapLocation {
+  id: string;
+  name: string;
+  description: string;
+  xPosition: number;
+  yPosition: number;
+  isActive: boolean;
+}
+
+export interface SiteStat {
+  id: string;
+  title: string;
+  subtitleFirst: string;
+  subtitleSecond: string;
+  value: number;
+  label: string;
+  description: string;
+  iconSvg: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface Partner {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  websiteUrl: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface HomePageOverview {
+  logo: HomeLogoSettings | null;
+  hero: HomeHeroSettings | null;
+  featuredSection: FeaturedSectionSettings | null;
+  featuredTours: Tour[];
+  services: SiteService[];
+  map: HomeMapSettings | null;
+  mapLocations: MapLocation[];
+  stats: SiteStat[];
+  partners: Partner[];
+}
+
 export type RequestStatus =
   | "beklemede"
   | "onaylandi"

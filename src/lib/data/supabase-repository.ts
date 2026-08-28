@@ -4,8 +4,17 @@ import type {
   CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
+  FeaturedSectionSettings,
+  HomeHeroSettings,
+  HomeLogoSettings,
+  HomeMapSettings,
+  HomePageOverview,
+  MapLocation,
+  Partner,
   RequestFilters,
   RequestStatus,
+  SiteService,
+  SiteStat,
   TeklifTalebi,
   Tour,
   TourFilters,
@@ -116,6 +125,123 @@ function mapBlogPostRow(row: SupabaseBlogPostRow): BlogPost {
   };
 }
 
+interface SupabaseLogoSettingsRow {
+  logo_path: string | null;
+}
+
+interface SupabaseHeroSettingsRow {
+  title: string | null;
+  subtitle: string | null;
+  image_path: string | null;
+}
+
+interface SupabaseFeaturedSectionRow {
+  title: string | null;
+  subtitle: string | null;
+  description: string | null;
+  is_active: boolean | null;
+}
+
+interface SupabaseServiceRow {
+  id: string;
+  name: string | null;
+  short_description: string | null;
+  long_description: string | null;
+  icon_svg: string | null;
+  image_path: string | null;
+  display_order: number | null;
+  is_active: boolean | null;
+}
+
+interface SupabaseMapSettingsRow {
+  title: string | null;
+  subtitle: string | null;
+  map_image_path: string | null;
+}
+
+interface SupabaseMapLocationRow {
+  id: string;
+  name: string | null;
+  description: string | null;
+  x_position: number | null;
+  y_position: number | null;
+  is_active: boolean | null;
+}
+
+interface SupabaseStatRow {
+  id: string;
+  title: string | null;
+  subtitle_first: string | null;
+  subtitle_second: string | null;
+  stat_value: number | null;
+  stat_label: string | null;
+  stat_description: string | null;
+  stat_icon_svg: string | null;
+  display_order: number | null;
+  is_active: boolean | null;
+}
+
+interface SupabasePartnerRow {
+  id: string;
+  name: string | null;
+  logo_path: string | null;
+  website_url: string | null;
+  display_order: number | null;
+  is_active: boolean | null;
+}
+
+function mapService(row: SupabaseServiceRow): SiteService {
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    shortDescription: row.short_description ?? "",
+    longDescription: row.long_description ?? "",
+    iconSvg: row.icon_svg ?? "",
+    imageUrl: row.image_path ? siteImageUrl(row.image_path) : null,
+    displayOrder: row.display_order ?? 0,
+    isActive: row.is_active ?? false,
+  };
+}
+
+function mapMapLocation(row: SupabaseMapLocationRow): MapLocation {
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    description: row.description ?? "",
+    xPosition: row.x_position ?? 0,
+    yPosition: row.y_position ?? 0,
+    isActive: row.is_active ?? false,
+  };
+}
+
+function mapStat(row: SupabaseStatRow): SiteStat {
+  return {
+    id: row.id,
+    title: row.title ?? "",
+    subtitleFirst: row.subtitle_first ?? "",
+    subtitleSecond: row.subtitle_second ?? "",
+    value: row.stat_value ?? 0,
+    label: row.stat_label ?? "",
+    description: row.stat_description ?? "",
+    iconSvg: row.stat_icon_svg ?? "",
+    displayOrder: row.display_order ?? 0,
+    isActive: row.is_active ?? false,
+  };
+}
+
+function mapPartner(row: SupabasePartnerRow): Partner {
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    logoUrl: row.logo_path ? siteImageUrl(row.logo_path) : null,
+    websiteUrl: row.website_url ?? "",
+    displayOrder: row.display_order ?? 0,
+    isActive: row.is_active ?? false,
+  };
+}
+
+const byDisplayOrder = <T extends { displayOrder: number }>(a: T, b: T) => a.displayOrder - b.displayOrder;
+
 /**
  * Reads from the site's existing (adminpanel3) Supabase project. Only the
  * tables that project already has are touched, and only via SELECT — no
@@ -195,6 +321,98 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
     if (!data) return null;
     return mapBlogPostRow(data as SupabaseBlogPostRow);
+  }
+
+  async getHomePageOverview(): Promise<HomePageOverview> {
+    // logo_settings/hero_settings/featured_section_settings/map_settings
+    // have accumulated multiple old rows in the live data (the old panel's
+    // "keep it single-row" cleanup didn't always run) — order by
+    // most-recently-updated and take the first instead of `.maybeSingle()`,
+    // which throws when more than one row matches.
+    const [
+      { data: logoRows },
+      { data: heroRows },
+      { data: featuredRows },
+      { data: popularTourRows },
+      { data: serviceRows },
+      { data: mapRows },
+      { data: mapLocationRows },
+      { data: statRows },
+      { data: partnerRows },
+    ] = await Promise.all([
+      supabase.from("logo_settings").select("logo_path").order("updated_at", { ascending: false }).limit(1),
+      supabase
+        .from("hero_settings")
+        .select("title, subtitle, image_path")
+        .order("updated_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("featured_section_settings")
+        .select("title, subtitle, description, is_active")
+        .order("updated_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("tours")
+        .select(
+          "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path",
+        )
+        .eq("popular_tour", true),
+      supabase
+        .from("services")
+        .select("id, name, short_description, long_description, icon_svg, image_path, display_order, is_active"),
+      supabase
+        .from("map_settings")
+        .select("title, subtitle, map_image_path")
+        .order("updated_at", { ascending: false })
+        .limit(1),
+      supabase.from("map_locations").select("id, name, description, x_position, y_position, is_active"),
+      supabase
+        .from("stats")
+        .select(
+          "id, title, subtitle_first, subtitle_second, stat_value, stat_label, stat_description, stat_icon_svg, display_order, is_active",
+        ),
+      supabase.from("partners").select("id, name, logo_path, website_url, display_order, is_active"),
+    ]);
+
+    const logo = (logoRows?.[0] ?? null) as SupabaseLogoSettingsRow | null;
+    const hero = (heroRows?.[0] ?? null) as SupabaseHeroSettingsRow | null;
+    const featured = (featuredRows?.[0] ?? null) as SupabaseFeaturedSectionRow | null;
+    const mapRow = (mapRows?.[0] ?? null) as SupabaseMapSettingsRow | null;
+
+    return {
+      logo: logo
+        ? ({ logoUrl: logo.logo_path ? siteImageUrl(logo.logo_path) : null } satisfies HomeLogoSettings)
+        : null,
+      hero: hero
+        ? ({
+            title: hero.title ?? "",
+            subtitle: hero.subtitle ?? "",
+            imageUrl: hero.image_path ? siteImageUrl(hero.image_path) : null,
+          } satisfies HomeHeroSettings)
+        : null,
+      featuredSection: featured
+        ? ({
+            title: featured.title ?? "",
+            subtitle: featured.subtitle ?? "",
+            description: featured.description ?? "",
+            isActive: featured.is_active ?? false,
+          } satisfies FeaturedSectionSettings)
+        : null,
+      featuredTours: (popularTourRows ?? []).map((row) => mapTourRow(row as SupabaseTourRow)),
+      services: (serviceRows ?? []).map((row) => mapService(row as SupabaseServiceRow)).sort(byDisplayOrder),
+      map: mapRow
+        ? ({
+            title: (mapRow as SupabaseMapSettingsRow).title ?? "",
+            subtitle: (mapRow as SupabaseMapSettingsRow).subtitle ?? "",
+            imageUrl: (mapRow as SupabaseMapSettingsRow).map_image_path
+              ? siteImageUrl((mapRow as SupabaseMapSettingsRow).map_image_path)
+              : null,
+          } satisfies HomeMapSettings)
+        : null,
+      mapLocations: (mapLocationRows ?? []).map((row) => mapMapLocation(row as SupabaseMapLocationRow)),
+      stats: (statRows ?? []).map((row) => mapStat(row as SupabaseStatRow)).sort(byDisplayOrder),
+      partners: (partnerRows ?? []).map((row) => mapPartner(row as SupabasePartnerRow)).sort(byDisplayOrder),
+    };
   }
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

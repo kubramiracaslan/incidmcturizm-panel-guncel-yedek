@@ -4,6 +4,7 @@ import type {
   CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
+  HomePageOverview,
   RequestFilters,
   RequestStatus,
   TeklifTalebi,
@@ -72,6 +73,20 @@ export class MockDataRepository implements DataRepository {
 
   async getBlogPostById(): Promise<BlogPost | null> {
     return null;
+  }
+
+  async getHomePageOverview(): Promise<HomePageOverview> {
+    return {
+      logo: null,
+      hero: null,
+      featuredSection: null,
+      featuredTours: [],
+      services: [],
+      map: null,
+      mapLocations: [],
+      stats: [],
+      partners: [],
+    };
   }
 
   async listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

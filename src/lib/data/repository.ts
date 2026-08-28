@@ -4,6 +4,7 @@ import type {
   CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
+  HomePageOverview,
   RequestFilters,
   RequestStatus,
   TeklifTalebi,
@@ -26,6 +27,8 @@ export interface DataRepository {
 
   listBlogPosts(): Promise<BlogPost[]>;
   getBlogPostById(id: string): Promise<BlogPost | null>;
+
+  getHomePageOverview(): Promise<HomePageOverview>;
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]>;
   getRequestById(id: string): Promise<TeklifTalebi | null>;

@@ -15,6 +15,7 @@ export const agentNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/admin/ana-sayfa", label: "Ana Sayfa Yönetimi", icon: "web" },
   { href: "/admin/tur-katalogu", label: "Tur Kataloğu", icon: "menu_book" },
   { href: "/admin/talepler", label: "Talepler", icon: "description" },
   { href: "/admin/turlar", label: "Turlar", icon: "map" },

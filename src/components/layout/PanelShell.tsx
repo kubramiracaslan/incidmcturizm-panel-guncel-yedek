@@ -9,8 +9,8 @@ import type { AuthUser } from "@/lib/types";
 interface PanelShellProps {
   brandName: string;
   navItems: NavItem[];
-  ctaHref: string;
-  ctaLabel: string;
+  ctaHref?: string;
+  ctaLabel?: string;
   title: string;
   user: AuthUser;
   searchPlaceholder?: string;

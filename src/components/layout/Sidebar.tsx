@@ -9,8 +9,8 @@ import type { NavItem } from "@/lib/nav";
 interface SidebarProps {
   brandName: string;
   navItems: NavItem[];
-  ctaHref: string;
-  ctaLabel: string;
+  ctaHref?: string;
+  ctaLabel?: string;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -52,15 +52,17 @@ export function Sidebar({
           />
         </div>
 
-        <div className="mb-6 px-4">
-          <Link
-            href={ctaHref}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-body-md font-semibold text-primary-container shadow-sm transition-colors hover:bg-brand-dark"
-          >
-            <Icon name="add" filled className="text-lg" />
-            {ctaLabel}
-          </Link>
-        </div>
+        {ctaHref && ctaLabel && (
+          <div className="mb-6 px-4">
+            <Link
+              href={ctaHref}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-body-md font-semibold text-primary-container shadow-sm transition-colors hover:bg-brand-dark"
+            >
+              <Icon name="add" filled className="text-lg" />
+              {ctaLabel}
+            </Link>
+          </div>
+        )}
 
         <div className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2">
           {navItems.map((item) => {

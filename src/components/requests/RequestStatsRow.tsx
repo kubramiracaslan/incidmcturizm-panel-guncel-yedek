@@ -11,18 +11,21 @@ export function RequestStatsRow({ stats }: { stats: DashboardStats }) {
         value={stats.totalRequests}
       />
       <StatCard
+        tone="pending"
         icon="pending"
         label="Bekleyen Talepler"
         value={stats.pendingRequests}
         hint="TEKLİF BEKLENİYOR"
       />
       <StatCard
+        tone="success"
         icon="check_circle"
         label="Onaylanan Talepler"
         value={stats.approvedTours}
         hint="TURA DÖNÜŞTÜ"
       />
       <StatCard
+        tone="revision"
         icon="edit_note"
         label="Revize İstenen Talepler"
         value={stats.revisionRequests}

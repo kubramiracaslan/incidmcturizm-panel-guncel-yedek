@@ -7,7 +7,7 @@ const statusConfig: Record<
 > = {
   beklemede: {
     label: "Beklemede",
-    className: "bg-sand-light/20 text-sand-light border-sand-light/20",
+    className: "bg-warning/20 text-warning border-warning/20",
     dot: true,
   },
   onaylandi: {

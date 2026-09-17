@@ -24,7 +24,7 @@ const statusMeta: Record<
   },
   beklemede: {
     title: "Yeni talep iletildi",
-    dotColorClass: "bg-sand-light",
+    dotColorClass: "bg-warning",
     describe: (r) => `${r.tourName} için ${r.adults + r.children} kişilik talep iletildi.`,
   },
   revize_istendi: {

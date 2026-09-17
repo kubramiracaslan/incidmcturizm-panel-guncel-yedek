@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
 import { AgentShell } from "@/components/layout/AgentShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { RequestStatsRow } from "@/components/requests/RequestStatsRow";
 import { RequestStatusTabs } from "@/components/requests/RequestStatusTabs";
 import { RequestsTable } from "@/components/requests/RequestsTable";
+import {
+  RequestsExportButton,
+  RequestsFilterProvider,
+  RequestsFilterToggleButton,
+} from "@/components/requests/RequestsFilterContext";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data";
 import type { RequestStatus } from "@/lib/types";
@@ -26,34 +30,32 @@ export default async function AgentRequestsPage({ searchParams }: PageProps) {
 
   return (
     <AgentShell title="Taleplerim">
-      <PageHeader
-        title="Taleplerim"
-        description={`${user.agencyName} adına gönderilen teklif talepleri`}
-        actions={
-          <>
-            <Button variant="secondary" icon="filter_list">
-              Filtrele
-            </Button>
-            <Button variant="secondary" icon="download">
-              Dışa Aktar
-            </Button>
-          </>
-        }
-      />
+      <RequestsFilterProvider>
+        <PageHeader
+          title="Taleplerim"
+          description={`${user.agencyName} adına gönderilen teklif talepleri`}
+          actions={
+            <>
+              <RequestsFilterToggleButton />
+              <RequestsExportButton />
+            </>
+          }
+        />
 
-      {created && (
-        <div className="mb-6 flex items-center gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-3 text-sm text-secondary">
-          <span className="font-mono">#{created}</span>
-          numaralı talebiniz oluşturuldu ve İnci DMC ekibine iletildi.
+        {created && (
+          <div className="mb-6 flex items-center gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-3 text-sm text-secondary">
+            <span className="font-mono">#{created}</span>
+            numaralı talebiniz oluşturuldu ve İnci DMC ekibine iletildi.
+          </div>
+        )}
+
+        <RequestStatsRow stats={stats} />
+
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
+          <RequestStatusTabs basePath="/agent/talepler" activeStatus={status ?? ""} />
+          <RequestsTable requests={requests} />
         </div>
-      )}
-
-      <RequestStatsRow stats={stats} />
-
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
-        <RequestStatusTabs basePath="/agent/talepler" activeStatus={status ?? ""} />
-        <RequestsTable requests={requests} />
-      </div>
+      </RequestsFilterProvider>
     </AgentShell>
   );
 }

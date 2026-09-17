@@ -1,4 +1,11 @@
-import type { Currency } from "@/lib/types";
+import type { Currency, RequestStatus } from "@/lib/types";
+
+export const requestStatusLabels: Record<RequestStatus, string> = {
+  beklemede: "Beklemede",
+  onaylandi: "Onaylandı",
+  revize_istendi: "Revize İstendi",
+  reddedildi: "Reddedildi",
+};
 
 const formatters: Record<Currency, Intl.NumberFormat> = {
   TRY: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }),

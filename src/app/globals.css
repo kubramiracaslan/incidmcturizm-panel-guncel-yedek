@@ -73,6 +73,12 @@
   --color-mint-glow: #34d399;
   --color-sand-light: #faf3eb;
 
+  /* Warning (amber) — not part of the base Material export; added because
+     no existing token reads as yellow (sand-light is a pale cream). Used
+     for "beklemede"/pending status emphasis. */
+  --color-warning: #ffd54f;
+  --color-on-warning: #3a2e00;
+
   /* Brand action color — used specifically for filled primary buttons
      per the Components spec ("Primary: Filled with #10B981"). Kept
      distinct from --color-secondary (#4edea3), which is the accent used
@@ -140,6 +146,8 @@
 
   --color-mint-glow: var(--color-mint-glow);
   --color-sand-light: var(--color-sand-light);
+  --color-warning: var(--color-warning);
+  --color-on-warning: var(--color-on-warning);
   --color-brand: var(--color-brand);
   --color-brand-dark: var(--color-brand-dark);
 

@@ -1,9 +1,13 @@
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { RequestStatsRow } from "@/components/requests/RequestStatsRow";
 import { RequestStatusTabs } from "@/components/requests/RequestStatusTabs";
 import { RequestsTable } from "@/components/requests/RequestsTable";
+import {
+  RequestsExportButton,
+  RequestsFilterProvider,
+  RequestsFilterToggleButton,
+} from "@/components/requests/RequestsFilterContext";
 import { repository } from "@/lib/data";
 import type { RequestStatus } from "@/lib/types";
 
@@ -21,27 +25,25 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
 
   return (
     <AdminShell title="Talepler">
-      <PageHeader
-        title="Gelen Talepler"
-        description="Tüm acentelerden gelen teklif taleplerini yönetin"
-        actions={
-          <>
-            <Button variant="secondary" icon="filter_list">
-              Filtrele
-            </Button>
-            <Button variant="secondary" icon="download">
-              Dışa Aktar
-            </Button>
-          </>
-        }
-      />
+      <RequestsFilterProvider>
+        <PageHeader
+          title="Gelen Talepler"
+          description="Tüm acentelerden gelen teklif taleplerini yönetin"
+          actions={
+            <>
+              <RequestsFilterToggleButton />
+              <RequestsExportButton />
+            </>
+          }
+        />
 
-      <RequestStatsRow stats={stats} />
+        <RequestStatsRow stats={stats} />
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
-        <RequestStatusTabs basePath="/admin/talepler" activeStatus={status ?? ""} />
-        <RequestsTable requests={requests} showAgencyColumn interactive />
-      </div>
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
+          <RequestStatusTabs basePath="/admin/talepler" activeStatus={status ?? ""} />
+          <RequestsTable requests={requests} showAgencyColumn interactive />
+        </div>
+      </RequestsFilterProvider>
     </AdminShell>
   );
 }

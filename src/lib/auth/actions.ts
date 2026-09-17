@@ -1,8 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { verifyMockCredentials } from "./mock-users";
-import { createSession, destroySession } from "./session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveAuthUser, type AuthResolutionFailureReason } from "./session";
+
+const LOGIN_ERROR_MESSAGES: Record<AuthResolutionFailureReason, string> = {
+  "no-role": "Bu hesap için bir rol tanımlı değil. Lütfen yönetici ile iletişime geçin.",
+  "no-agency": "Hesabınız henüz bir acenteye bağlanmamış. Lütfen yöneticinizle iletişime geçin.",
+  pending: "Başvurunuz inceleniyor. Onaylandığında giriş yapabileceksiniz.",
+  rejected: "Başvurunuz reddedildi. Detaylı bilgi için yöneticinizle iletişime geçin.",
+};
 
 export interface LoginFormState {
   error: string | null;
@@ -16,12 +23,19 @@ export async function loginAction(
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
-  const user = verifyMockCredentials(email, password);
-  if (!user) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
     return { error: "E-posta veya şifre hatalı." };
   }
 
-  await createSession(user);
+  const resolution = await resolveAuthUser(supabase, data.user);
+  if (!resolution.user) {
+    await supabase.auth.signOut();
+    return { error: LOGIN_ERROR_MESSAGES[resolution.reason] };
+  }
+  const user = resolution.user;
+
   // Resolved client-side (see login/page.tsx) rather than via redirect()
   // here: redirect()'ing straight out of a useActionState action produced
   // an intermittent "unexpected response was received from the server"
@@ -30,6 +44,7 @@ export async function loginAction(
 }
 
 export async function logoutAction(): Promise<void> {
-  await destroySession();
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
   redirect("/login");
 }

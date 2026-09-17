@@ -1,17 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { findMockUserById } from "@/lib/auth/mock-users";
-import { SESSION_COOKIE_NAME, decodeSessionToken } from "@/lib/auth/session-token";
+import { resolveAuthUser } from "@/lib/auth/session";
+import { createSupabaseProxyClient } from "@/lib/supabase/proxy";
 
 function dashboardPathFor(role: "agent" | "admin"): string {
   return role === "admin" ? "/admin/dashboard" : "/agent/dashboard";
 }
 
-export function proxy(request: NextRequest) {
+/** Redirects while preserving any session cookie Supabase refreshed on `source`. */
+function redirectWithCookies(url: URL, source: NextResponse): NextResponse {
+  const redirectResponse = NextResponse.redirect(url);
+  source.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  return redirectResponse;
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const payload = decodeSessionToken(token);
-  const user = payload ? findMockUserById(payload.uid) : null;
+  const { supabase, getResponse } = createSupabaseProxyClient(request);
+  const { data } = await supabase.auth.getUser();
+  const resolution = data.user ? await resolveAuthUser(supabase, data.user) : null;
+  const user = resolution?.user ?? null;
+  const response = getResponse();
 
   const isAgentRoute = pathname.startsWith("/agent");
   const isAdminRoute = pathname.startsWith("/admin");
@@ -21,26 +30,26 @@ export function proxy(request: NextRequest) {
     if (isAgentRoute || isAdminRoute) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      return redirectWithCookies(loginUrl, response);
     }
     if (pathname === "/") {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirectWithCookies(new URL("/login", request.url), response);
     }
-    return NextResponse.next();
+    return response;
   }
 
   // Signed in: keep each role inside its own panel and out of /login.
   if (isLoginRoute || pathname === "/") {
-    return NextResponse.redirect(new URL(dashboardPathFor(user.role), request.url));
+    return redirectWithCookies(new URL(dashboardPathFor(user.role), request.url), response);
   }
   if (isAdminRoute && user.role !== "admin") {
-    return NextResponse.redirect(new URL(dashboardPathFor(user.role), request.url));
+    return redirectWithCookies(new URL(dashboardPathFor(user.role), request.url), response);
   }
   if (isAgentRoute && user.role !== "agent") {
-    return NextResponse.redirect(new URL(dashboardPathFor(user.role), request.url));
+    return redirectWithCookies(new URL(dashboardPathFor(user.role), request.url), response);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

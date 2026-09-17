@@ -1,7 +1,8 @@
 import type {
   Agency,
+  AgencyFilters,
+  AgencyStatus,
   BlogPost,
-  CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
   FeaturedSectionSettings,
@@ -22,6 +23,33 @@ import type {
 import type { DataRepository } from "./repository";
 import { MockDataRepository } from "./mock-repository";
 import { supabase, siteImageUrl, blogImageUrl } from "@/lib/supabase/client";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AgencyProfileInput } from "@/lib/validation/agency";
+
+const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status";
+
+interface AcentalarRow {
+  id: string;
+  acenta_ismi: string | null;
+  isim: string | null;
+  soyisim: string | null;
+  email: string | null;
+  telefon: string | null;
+  status: string | null;
+}
+
+function mapAgencyRow(row: AcentalarRow): Agency {
+  return {
+    id: row.id,
+    name: row.acenta_ismi ?? "",
+    contactName: [row.isim, row.soyisim].filter(Boolean).join(" "),
+    firstName: row.isim ?? "",
+    lastName: row.soyisim ?? "",
+    email: row.email ?? "",
+    phone: row.telefon ?? "",
+    status: (row.status as AgencyStatus) ?? "pending",
+  };
+}
 
 /** "5 GECE 7 GÜN" -> { nights: 5, days: 7 } */
 function parseDuration(duration: string | null | undefined): { nights: number; days: number } {
@@ -431,16 +459,61 @@ export class SupabaseDataRepository implements DataRepository {
     return this.mock.updateRequestStatus(id, status);
   }
 
-  listAgencies(): Promise<Agency[]> {
-    return this.mock.listAgencies();
+  async listAgencies(filters?: AgencyFilters): Promise<Agency[]> {
+    const client = await createSupabaseServerClient();
+    let query = client
+      .from("acentalar")
+      .select(AGENCY_COLUMNS)
+      .order("created_at", { ascending: false });
+
+    if (filters?.status) {
+      query = query.eq("status", filters.status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((row) => mapAgencyRow(row as AcentalarRow));
   }
 
-  getAgencyById(id: string): Promise<Agency | null> {
-    return this.mock.getAgencyById(id);
+  async getAgencyById(id: string): Promise<Agency | null> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("acentalar")
+      .select(AGENCY_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapAgencyRow(data as AcentalarRow) : null;
   }
 
-  createAgency(input: CreateAgencyInput): Promise<Agency> {
-    return this.mock.createAgency(input);
+  async updateAgencyStatus(id: string, status: AgencyStatus): Promise<Agency> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("acentalar")
+      .update({ status })
+      .eq("id", id)
+      .select(AGENCY_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapAgencyRow(data as AcentalarRow);
+  }
+
+  async updateAgencyProfile(id: string, input: AgencyProfileInput): Promise<Agency> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("acentalar")
+      .update({
+        acenta_ismi: input.acentaIsmi,
+        isim: input.firstName,
+        soyisim: input.lastName,
+        email: input.email,
+        telefon: input.phone,
+      })
+      .eq("id", id)
+      .select(AGENCY_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapAgencyRow(data as AcentalarRow);
   }
 
   getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {

@@ -166,20 +166,24 @@ export interface CreateRequestInput {
   notes: string;
 }
 
+export type AgencyStatus = "pending" | "approved" | "rejected";
+
 export interface Agency {
   id: string;
   name: string;
   contactName: string;
+  /** Raw `isim` — kept separate from `contactName` because that joined
+   * display string can't be reliably split back apart for editing. */
+  firstName: string;
+  /** Raw `soyisim` — see `firstName`. */
+  lastName: string;
   email: string;
   phone: string;
-  status: "active" | "passive";
+  status: AgencyStatus;
 }
 
-export interface CreateAgencyInput {
-  name: string;
-  contactName: string;
-  email: string;
-  phone: string;
+export interface AgencyFilters {
+  status?: AgencyStatus;
 }
 
 export interface AuthUser {

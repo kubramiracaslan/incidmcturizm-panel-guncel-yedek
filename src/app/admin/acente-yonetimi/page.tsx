@@ -1,12 +1,23 @@
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { NewAgencyButton } from "@/components/agencies/NewAgencyButton";
+import { AgencyStatusBadge } from "@/components/agencies/AgencyStatusBadge";
+import { AgencyStatusTabs } from "@/components/agencies/AgencyStatusTabs";
+import { AgencyActionsMenu } from "@/components/agencies/AgencyActionsMenu";
+import { AgencyEditButton } from "@/components/agencies/AgencyEditButton";
 import { repository } from "@/lib/data";
+import type { AgencyStatus } from "@/lib/types";
 
-export default async function AdminAgenciesPage() {
+interface PageProps {
+  searchParams: Promise<{ status?: string }>;
+}
+
+export default async function AdminAgenciesPage({ searchParams }: PageProps) {
+  const { status } = await searchParams;
+
   const [agencies, requests] = await Promise.all([
-    repository.listAgencies(),
+    repository.listAgencies({ status: status as AgencyStatus | undefined }),
     repository.listRequests(),
   ]);
 
@@ -15,80 +26,100 @@ export default async function AdminAgenciesPage() {
       <PageHeader
         title="Acente Yönetimi"
         description="Platforma kayıtlı acenteleri görüntüleyin ve yönetin"
-        actions={<NewAgencyButton />}
+        actions={
+          <Button
+            variant="primary"
+            icon="add"
+            disabled
+            title="Bu özellik henüz aktif değil"
+            className="disabled:opacity-100"
+          >
+            Yeni Acente Ekle
+            <span className="rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-container">
+              Yakında
+            </span>
+          </Button>
+        }
       />
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse whitespace-nowrap text-left">
-            <thead>
-              <tr className="border-b border-white/10 bg-surface-deep/50">
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Acente
-                </th>
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Yetkili
-                </th>
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  E-posta
-                </th>
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Telefon
-                </th>
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Talep Sayısı
-                </th>
-                <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Durum
-                </th>
-                <th className="px-4 py-3 text-right text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                  İşlem
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 text-table-data font-table-data">
-              {agencies.map((agency, index) => {
-                const requestCount = requests.filter((r) => r.agencyId === agency.id).length;
-                return (
-                  <tr
-                    key={agency.id}
-                    className={`group transition-all hover:border-l hover:border-mint-glow hover:bg-surface-variant/30 ${
-                      index % 2 === 1 ? "bg-white/[0.02]" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-on-surface transition-colors group-hover:text-primary">
-                        {agency.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-on-surface-variant">{agency.contactName}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{agency.email}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{agency.phone}</td>
-                    <td className="px-4 py-3 text-on-surface">{requestCount}</td>
-                    <td className="px-4 py-3">
-                      {agency.status === "active" ? (
-                        <span className="inline-flex items-center rounded border border-secondary/20 bg-secondary/20 px-2 py-1 text-xs font-medium text-secondary">
-                          <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-                          Aktif
+        <AgencyStatusTabs basePath="/admin/acente-yonetimi" activeStatus={status ?? ""} />
+
+        {agencies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-on-surface-variant">
+            <Icon name="inbox" className="text-4xl" />
+            <p>Kayıt bulunamadı.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse whitespace-nowrap text-left">
+              <thead>
+                <tr className="border-b border-white/10 bg-surface-deep/50">
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Acente
+                  </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Yetkili
+                  </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    E-posta
+                  </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Telefon
+                  </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Talep Sayısı
+                  </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Durum
+                  </th>
+                  <th className="w-48 px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Durumu Değiştir
+                  </th>
+                  <th className="w-20 px-4 py-3 text-center text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Kaydı Düzenle
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-table-data font-table-data">
+                {agencies.map((agency, index) => {
+                  const requestCount = requests.filter((r) => r.agencyId === agency.id).length;
+                  return (
+                    <tr
+                      key={agency.id}
+                      className={`group transition-all hover:border-l hover:border-mint-glow hover:bg-surface-variant/30 ${
+                        index % 2 === 1 ? "bg-white/[0.02]" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-medium text-on-surface transition-colors group-hover:text-primary">
+                          {agency.name}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded border border-outline-variant bg-surface-variant px-2 py-1 text-xs font-medium text-on-surface-variant">
-                          <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-                          Pasif
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button className="rounded p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary">
-                        <Icon name="more_vert" className="text-[20px]" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-4 py-3 text-on-surface-variant">{agency.contactName}</td>
+                      <td className="px-4 py-3 text-on-surface-variant">{agency.email}</td>
+                      <td className="px-4 py-3 text-on-surface-variant">{agency.phone}</td>
+                      <td className="px-4 py-3 text-on-surface">{requestCount}</td>
+                      <td className="px-4 py-3">
+                        <AgencyStatusBadge status={agency.status} />
+                      </td>
+                      <td className="w-48 px-4 py-3">
+                        <AgencyActionsMenu
+                          agencyId={agency.id}
+                          agencyName={agency.name}
+                          currentStatus={agency.status}
+                        />
+                      </td>
+                      <td className="w-20 px-4 py-3 text-center">
+                        <AgencyEditButton agency={agency} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </AdminShell>
   );

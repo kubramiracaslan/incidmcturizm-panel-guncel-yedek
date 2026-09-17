@@ -1,7 +1,8 @@
 import type {
   Agency,
+  AgencyFilters,
+  AgencyStatus,
   BlogPost,
-  CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
   HomePageOverview,
@@ -12,6 +13,7 @@ import type {
   TourFilters,
 } from "@/lib/types";
 import type { DataRepository } from "./repository";
+import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { mockAgencies } from "./mock/agencies";
 import { mockRequests, findMockRequestById } from "./mock/requests";
 import { mockTours, findMockTourById } from "./mock/tours";
@@ -25,22 +27,6 @@ function nextRequestId(): string {
 }
 
 let agencies = [...mockAgencies];
-let agencySequence = 0;
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-function nextAgencyId(name: string): string {
-  agencySequence += 1;
-  const base = slugify(name) || "acente";
-  return `agency-${base}-${agencySequence}`;
-}
 
 function findAgencyById(id: string): Agency | undefined {
   return agencies.find((agency) => agency.id === id);
@@ -151,7 +137,10 @@ export class MockDataRepository implements DataRepository {
     return updated;
   }
 
-  async listAgencies(): Promise<Agency[]> {
+  async listAgencies(filters?: AgencyFilters): Promise<Agency[]> {
+    if (filters?.status) {
+      return agencies.filter((agency) => agency.status === filters.status);
+    }
     return [...agencies];
   }
 
@@ -159,17 +148,28 @@ export class MockDataRepository implements DataRepository {
     return findAgencyById(id) ?? null;
   }
 
-  async createAgency(input: CreateAgencyInput): Promise<Agency> {
-    const created: Agency = {
-      id: nextAgencyId(input.name),
-      name: input.name,
-      contactName: input.contactName,
+  async updateAgencyStatus(id: string, status: AgencyStatus): Promise<Agency> {
+    const existing = findAgencyById(id);
+    if (!existing) throw new Error(`Agency not found: ${id}`);
+    const updated: Agency = { ...existing, status };
+    agencies = agencies.map((agency) => (agency.id === id ? updated : agency));
+    return updated;
+  }
+
+  async updateAgencyProfile(id: string, input: AgencyProfileInput): Promise<Agency> {
+    const existing = findAgencyById(id);
+    if (!existing) throw new Error(`Agency not found: ${id}`);
+    const updated: Agency = {
+      ...existing,
+      name: input.acentaIsmi,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      contactName: `${input.firstName} ${input.lastName}`.trim(),
       email: input.email,
       phone: input.phone,
-      status: "active",
     };
-    agencies = [created, ...agencies];
-    return created;
+    agencies = agencies.map((agency) => (agency.id === id ? updated : agency));
+    return updated;
   }
 
   async getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {

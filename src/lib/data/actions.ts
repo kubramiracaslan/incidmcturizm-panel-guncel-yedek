@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "./index";
-import type { RequestStatus } from "@/lib/types";
+import type { AgencyStatus, RequestStatus } from "@/lib/types";
+import {
+  validateAgencyProfileInput,
+  type AgencyProfileFieldErrors,
+} from "@/lib/validation/agency";
 
 export interface CreateRequestFormState {
   error: string | null;
@@ -51,39 +55,66 @@ export async function createRequestAction(
   redirect(`/agent/talepler?created=${created.id}`);
 }
 
-export interface CreateAgencyFormState {
+export interface UpdateAgencyStatusResult {
   error: string | null;
-  success: boolean;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export async function createAgencyAction(
-  _prevState: CreateAgencyFormState,
-  formData: FormData,
-): Promise<CreateAgencyFormState> {
+export async function updateAgencyStatusAction(
+  agencyId: string,
+  status: AgencyStatus,
+): Promise<UpdateAgencyStatusResult> {
   const user = await getSession();
   if (!user || user.role !== "admin") {
-    return { error: "Bu işlem için yönetici yetkisi gerekiyor.", success: false };
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor." };
   }
 
-  const name = String(formData.get("name") ?? "").trim();
-  const contactName = String(formData.get("contactName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
-
-  if (!name || !contactName || !email || !phone) {
-    return { error: "Lütfen tüm alanları doldurun.", success: false };
+  try {
+    await repository.updateAgencyStatus(agencyId, status);
+  } catch {
+    return { error: "Durum güncellenirken bir hata oluştu. Lütfen tekrar deneyin." };
   }
-  if (!EMAIL_PATTERN.test(email)) {
-    return { error: "Lütfen geçerli bir e-posta adresi girin.", success: false };
-  }
-
-  await repository.createAgency({ name, contactName, email, phone });
 
   revalidatePath("/admin/acente-yonetimi");
+  return { error: null };
+}
 
-  return { error: null, success: true };
+export interface UpdateAgencyProfileResult {
+  error: string | null;
+  fieldErrors: AgencyProfileFieldErrors;
+}
+
+export async function updateAgencyProfileAction(
+  agencyId: string,
+  formData: FormData,
+): Promise<UpdateAgencyProfileResult> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor.", fieldErrors: {} };
+  }
+
+  const validation = validateAgencyProfileInput({
+    acentaIsmi: String(formData.get("acentaIsmi") ?? ""),
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+  });
+
+  if (!validation.valid) {
+    return { error: "Lütfen formu kontrol edin.", fieldErrors: validation.fieldErrors };
+  }
+
+  try {
+    await repository.updateAgencyProfile(agencyId, validation.value);
+  } catch {
+    return {
+      error: "Kayıt güncellenirken bir hata oluştu. Lütfen tekrar deneyin.",
+      fieldErrors: {},
+    };
+  }
+
+  revalidatePath("/admin/acente-yonetimi");
+  return { error: null, fieldErrors: {} };
 }
 
 export async function changeRequestStatusAction(

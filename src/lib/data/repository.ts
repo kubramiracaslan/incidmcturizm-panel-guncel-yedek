@@ -1,7 +1,8 @@
 import type {
   Agency,
+  AgencyFilters,
+  AgencyStatus,
   BlogPost,
-  CreateAgencyInput,
   CreateRequestInput,
   DashboardStats,
   HomePageOverview,
@@ -11,6 +12,7 @@ import type {
   Tour,
   TourFilters,
 } from "@/lib/types";
+import type { AgencyProfileInput } from "@/lib/validation/agency";
 
 /**
  * Single contract every screen talks to for tours, requests and agencies.
@@ -35,9 +37,10 @@ export interface DataRepository {
   createRequest(input: CreateRequestInput): Promise<TeklifTalebi>;
   updateRequestStatus(id: string, status: RequestStatus): Promise<TeklifTalebi>;
 
-  listAgencies(): Promise<Agency[]>;
+  listAgencies(filters?: AgencyFilters): Promise<Agency[]>;
   getAgencyById(id: string): Promise<Agency | null>;
-  createAgency(input: CreateAgencyInput): Promise<Agency>;
+  updateAgencyStatus(id: string, status: AgencyStatus): Promise<Agency>;
+  updateAgencyProfile(id: string, input: AgencyProfileInput): Promise<Agency>;
 
   getDashboardStats(filters?: RequestFilters): Promise<DashboardStats>;
 }

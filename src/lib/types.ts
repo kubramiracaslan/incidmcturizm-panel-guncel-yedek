@@ -7,7 +7,7 @@
  * source be swapped later without touching UI code.
  */
 
-export type Currency = "TRY" | "USD" | "EUR";
+export type Currency = "TRY" | "USD" | "EUR" | "GBP";
 
 export type UserRole = "agent" | "admin";
 
@@ -35,6 +35,88 @@ export interface Tour {
   includes: string[];
   excludes: string[];
   importantNotes: string[];
+}
+
+export interface CreateTourHighlightInput {
+  content: string;
+  contentEn?: string;
+  displayOrder: number;
+}
+
+export interface CreateTourInclusionInput {
+  content: string;
+  contentEn?: string;
+  displayOrder: number;
+}
+
+export interface CreateTourTipInput {
+  content: string;
+  contentEn?: string;
+  iconName: string;
+}
+
+export interface CreateTourDailyProgramInput {
+  dayRange: string;
+  title: string;
+  titleEn?: string;
+  description: string;
+  descriptionEn?: string;
+}
+
+export interface CreateTourDatePriceInput {
+  travelPeriod: string;
+  priceCategory: string;
+  airline: string;
+  price: number;
+  currency: Currency;
+  displayOrder: number;
+}
+
+export interface CreateTourWeatherDataInput {
+  month: string;
+  temperature: number;
+  rainfall: number;
+  isBestPeriod: boolean;
+}
+
+/**
+ * Write-side shape for the "Yeni Tur Ekle" form — deliberately separate
+ * from `Tour` (the read-side shape the catalog/detail pages already use)
+ * because it models every real `tours` column the live site reads,
+ * including ones `Tour` doesn't surface (base_date_start/end, the three
+ * flat gallery image columns, popular_tour/destination_status/opportunity_tour).
+ * `tour_type_id` is intentionally excluded — confirmed unused on the live
+ * site. `_en` fields are optional and may be left blank for now.
+ */
+export interface CreateTourInput {
+  title: string;
+  titleEn?: string;
+  slug: string;
+  region: string;
+  duration: string;
+  durationEn?: string;
+  basePrice: number;
+  basePriceCurrency: Currency;
+  baseDateStart?: string; // ISO date (YYYY-MM-DD)
+  baseDateEnd?: string;
+  shortDescription: string;
+  shortDescriptionEn?: string;
+  longDescription: string;
+  longDescriptionEn?: string;
+  popularTour: boolean;
+  destinationStatus: boolean;
+  opportunityTour: boolean;
+  heroImagePath?: string;
+  toursMapImage?: string;
+  toursImage1?: string;
+  toursImage2?: string;
+  toursImage3?: string;
+  highlights: CreateTourHighlightInput[];
+  inclusions: CreateTourInclusionInput[];
+  tips: CreateTourTipInput[];
+  dailyPrograms: CreateTourDailyProgramInput[];
+  datesPrices: CreateTourDatePriceInput[];
+  weatherData: CreateTourWeatherDataInput[];
 }
 
 export interface BlogPost {

@@ -4,6 +4,7 @@ import type {
   AgencyStatus,
   BlogPost,
   CreateRequestInput,
+  CreateTourInput,
   DashboardStats,
   FeaturedSectionSettings,
   HomeHeroSettings,
@@ -22,7 +23,7 @@ import type {
 } from "@/lib/types";
 import type { DataRepository } from "./repository";
 import { MockDataRepository } from "./mock-repository";
-import { supabase, siteImageUrl, blogImageUrl } from "@/lib/supabase/client";
+import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 
@@ -62,7 +63,7 @@ function parseDuration(duration: string | null | undefined): { nights: number; d
   };
 }
 
-const CURRENCIES = new Set(["TRY", "USD", "EUR"]);
+const CURRENCIES = new Set(["TRY", "USD", "EUR", "GBP"]);
 
 interface SupabaseTourRow {
   id: string;
@@ -99,7 +100,7 @@ function mapTourRow(
     region: row.region,
     summary: row.short_description ?? "",
     description: row.long_description ?? "",
-    coverImage: siteImageUrl(row.hero_image_path),
+    coverImage: tourImageUrl(row.hero_image_path),
     nights,
     days,
     startingPrice: row.base_price ?? 0,
@@ -325,6 +326,128 @@ export class SupabaseDataRepository implements DataRepository {
       includes: (includes ?? []) as SupabaseTourContentRow[],
       notes: (tips ?? []) as SupabaseTourContentRow[],
     });
+  }
+
+  /**
+   * Writes a new tour and all of its child-table content in one go. Uses
+   * the authenticated (admin) server client — unlike every other method on
+   * this class, which only ever reads via the shared anon client — because
+   * this is the one write path into the site's own `tours` schema.
+   */
+  async createTour(input: CreateTourInput): Promise<{ id: string; slug: string }> {
+    const client = await createSupabaseServerClient();
+
+    const { data: tourRow, error: tourError } = await client
+      .from("tours")
+      .insert({
+        title: input.title,
+        title_en: input.titleEn || null,
+        slug: input.slug,
+        region: input.region,
+        duration: input.duration,
+        duration_en: input.durationEn || null,
+        base_price: input.basePrice,
+        base_price_currency: input.basePriceCurrency,
+        base_date_start: input.baseDateStart || null,
+        base_date_end: input.baseDateEnd || null,
+        short_description: input.shortDescription,
+        short_description_en: input.shortDescriptionEn || null,
+        long_description: input.longDescription,
+        long_description_en: input.longDescriptionEn || null,
+        popular_tour: input.popularTour,
+        destination_status: input.destinationStatus,
+        opportunity_tour: input.opportunityTour,
+        hero_image_path: input.heroImagePath || null,
+        tours_map_image: input.toursMapImage || null,
+        tours_image_1: input.toursImage1 || null,
+        tours_image_2: input.toursImage2 || null,
+        tours_image_3: input.toursImage3 || null,
+      })
+      .select("id, slug")
+      .single();
+    if (tourError) throw tourError;
+
+    const tourId = tourRow.id as string;
+
+    if (input.highlights.length > 0) {
+      const { error } = await client.from("tour_highlights").insert(
+        input.highlights.map((h) => ({
+          tour_id: tourId,
+          content: h.content,
+          content_en: h.contentEn || null,
+          display_order: h.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.inclusions.length > 0) {
+      const { error } = await client.from("tour_inclusions").insert(
+        input.inclusions.map((i) => ({
+          tour_id: tourId,
+          content: i.content,
+          content_en: i.contentEn || null,
+          display_order: i.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.tips.length > 0) {
+      const { error } = await client.from("tour_tips").insert(
+        input.tips.map((t) => ({
+          tour_id: tourId,
+          content: t.content,
+          content_en: t.contentEn || null,
+          icon_name: t.iconName,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.dailyPrograms.length > 0) {
+      const { error } = await client.from("tour_daily_programs").insert(
+        input.dailyPrograms.map((p) => ({
+          tour_id: tourId,
+          day_range: p.dayRange,
+          title: p.title,
+          title_en: p.titleEn || null,
+          description: p.description,
+          description_en: p.descriptionEn || null,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.datesPrices.length > 0) {
+      const { error } = await client.from("tour_dates_prices").insert(
+        input.datesPrices.map((d) => ({
+          tour_id: tourId,
+          travel_period: d.travelPeriod,
+          price_category: d.priceCategory,
+          airline: d.airline,
+          price: d.price,
+          currency: d.currency,
+          display_order: d.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.weatherData.length > 0) {
+      const { error } = await client.from("tour_weather_data").insert(
+        input.weatherData.map((w) => ({
+          tour_id: tourId,
+          month: w.month,
+          temperature: w.temperature,
+          rainfall: w.rainfall,
+          is_best_period: w.isBestPeriod,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    return { id: tourId, slug: tourRow.slug as string };
   }
 
   async listBlogPosts(): Promise<BlogPost[]> {

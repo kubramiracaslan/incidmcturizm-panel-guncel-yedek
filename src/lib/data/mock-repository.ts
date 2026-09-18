@@ -4,6 +4,7 @@ import type {
   AgencyStatus,
   BlogPost,
   CreateRequestInput,
+  CreateTourInput,
   DashboardStats,
   HomePageOverview,
   RequestFilters,
@@ -51,6 +52,10 @@ export class MockDataRepository implements DataRepository {
 
   async getTourById(id: string): Promise<Tour | null> {
     return findMockTourById(id) ?? null;
+  }
+
+  async createTour(input: CreateTourInput): Promise<{ id: string; slug: string }> {
+    return { id: `mock-tour-${Date.now()}`, slug: input.slug };
   }
 
   async listBlogPosts(): Promise<BlogPost[]> {

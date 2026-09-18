@@ -4,6 +4,7 @@ import type {
   AgencyStatus,
   BlogPost,
   CreateRequestInput,
+  CreateTourInput,
   DashboardStats,
   HomePageOverview,
   RequestFilters,
@@ -26,6 +27,7 @@ import type { AgencyProfileInput } from "@/lib/validation/agency";
 export interface DataRepository {
   listTours(filters?: TourFilters): Promise<Tour[]>;
   getTourById(id: string): Promise<Tour | null>;
+  createTour(input: CreateTourInput): Promise<{ id: string; slug: string }>;
 
   listBlogPosts(): Promise<BlogPost[]>;
   getBlogPostById(id: string): Promise<BlogPost | null>;

@@ -11,6 +11,7 @@ const formatters: Record<Currency, Intl.NumberFormat> = {
   TRY: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }),
   USD: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
   EUR: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }),
+  GBP: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }),
 };
 
 export function formatMoney(amount: number, currency: Currency): string {

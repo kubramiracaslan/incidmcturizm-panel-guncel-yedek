@@ -16,11 +16,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const SITE_IMAGES_BUCKET = "site-images";
+const TOUR_IMAGES_BUCKET = "tour-images";
 
-/** Tour images: path is relative to the shared `site-images` bucket. */
+/** Site content images (logo, hero, services, map): shared `site-images` bucket. */
 export function siteImageUrl(path: string | null | undefined): string {
   if (!path) return "";
   return supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/** Tour images (hero/gallery/map): separate `tour-images` bucket — confirmed
+ * against the live site's own `getStorageUrl()`, not `site-images`. */
+export function tourImageUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  return supabase.storage.from(TOUR_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 /** Blog images: the bucket name is stored as the first path segment (e.g. "blog-post-images/xxx.jpg"). */

@@ -1,11 +1,11 @@
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { AgencyStatusBadge } from "@/components/agencies/AgencyStatusBadge";
 import { AgencyStatusTabs } from "@/components/agencies/AgencyStatusTabs";
 import { AgencyActionsMenu } from "@/components/agencies/AgencyActionsMenu";
 import { AgencyEditButton } from "@/components/agencies/AgencyEditButton";
+import { AgencyCreateButton } from "@/components/agencies/AgencyCreateButton";
 import { repository } from "@/lib/data";
 import type { AgencyStatus } from "@/lib/types";
 
@@ -26,20 +26,7 @@ export default async function AdminAgenciesPage({ searchParams }: PageProps) {
       <PageHeader
         title="Acente Yönetimi"
         description="Platforma kayıtlı acenteleri görüntüleyin ve yönetin"
-        actions={
-          <Button
-            variant="primary"
-            icon="add"
-            disabled
-            title="Bu özellik henüz aktif değil"
-            className="disabled:opacity-100"
-          >
-            Yeni Acente Ekle
-            <span className="rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-container">
-              Yakında
-            </span>
-          </Button>
-        }
+        actions={<AgencyCreateButton />}
       />
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">

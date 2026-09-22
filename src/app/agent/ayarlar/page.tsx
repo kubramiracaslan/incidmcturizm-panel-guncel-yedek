@@ -2,6 +2,7 @@ import { AgentShell } from "@/components/layout/AgentShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
+import { ChangePasswordForm } from "@/components/agent/ChangePasswordForm";
 
 const notificationSettings = [
   {
@@ -50,6 +51,10 @@ export default function AgentSettingsPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-6">
+        <ChangePasswordForm />
       </div>
     </AgentShell>
   );

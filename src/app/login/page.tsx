@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { loginAction, type LoginFormState } from "@/lib/auth/actions";
 
@@ -142,6 +143,13 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-on-surface-variant">
+            Hesabınız yok mu?{" "}
+            <Link href="/kayit" className="font-semibold text-secondary hover:underline">
+              Kayıt Ol
+            </Link>
+          </p>
         </div>
 
         <div className="mt-6 rounded-lg border border-outline-variant/40 bg-surface-container/60 p-4 text-xs text-on-surface-variant">

@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
 
   const isAgentRoute = pathname.startsWith("/agent");
   const isAdminRoute = pathname.startsWith("/admin");
-  const isLoginRoute = pathname === "/login";
+  const isLoginRoute = pathname === "/login" || pathname === "/kayit";
 
   if (!user) {
     if (isAgentRoute || isAdminRoute) {
@@ -53,5 +53,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/agent/:path*", "/admin/:path*"],
+  matcher: ["/", "/login", "/kayit", "/agent/:path*", "/admin/:path*"],
 };

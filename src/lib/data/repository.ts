@@ -7,6 +7,7 @@ import type {
   CreateTourInput,
   DashboardStats,
   HomePageOverview,
+  Partner,
   RequestFilters,
   RequestStatus,
   TeklifTalebi,
@@ -14,6 +15,22 @@ import type {
   TourFilters,
 } from "@/lib/types";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
+
+export interface UpdateHomeLogoInput {
+  logoPath: string;
+}
+
+export interface UpdateHomeHeroInput {
+  title: string;
+  subtitle: string;
+  imagePath?: string;
+}
+
+export interface CreatePartnerInput {
+  name: string;
+  websiteUrl: string;
+  logoPath: string;
+}
 
 /**
  * Single contract every screen talks to for tours, requests and agencies.
@@ -33,6 +50,9 @@ export interface DataRepository {
   getBlogPostById(id: string): Promise<BlogPost | null>;
 
   getHomePageOverview(): Promise<HomePageOverview>;
+  updateHomeLogo(input: UpdateHomeLogoInput): Promise<void>;
+  updateHomeHero(input: UpdateHomeHeroInput): Promise<void>;
+  createPartner(input: CreatePartnerInput): Promise<Partner>;
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]>;
   getRequestById(id: string): Promise<TeklifTalebi | null>;

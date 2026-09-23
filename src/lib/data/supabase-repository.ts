@@ -21,7 +21,12 @@ import type {
   Tour,
   TourFilters,
 } from "@/lib/types";
-import type { DataRepository } from "./repository";
+import type {
+  CreatePartnerInput,
+  DataRepository,
+  UpdateHomeHeroInput,
+  UpdateHomeLogoInput,
+} from "./repository";
 import { MockDataRepository } from "./mock-repository";
 import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -330,9 +335,9 @@ export class SupabaseDataRepository implements DataRepository {
 
   /**
    * Writes a new tour and all of its child-table content in one go. Uses
-   * the authenticated (admin) server client — unlike every other method on
-   * this class, which only ever reads via the shared anon client — because
-   * this is the one write path into the site's own `tours` schema.
+   * the authenticated (admin) server client — unlike most other methods on
+   * this class, which only ever read via the shared anon client — because
+   * this is a write path into the site's own `tours` schema.
    */
   async createTour(input: CreateTourInput): Promise<{ id: string; slug: string }> {
     const client = await createSupabaseServerClient();
@@ -491,11 +496,21 @@ export class SupabaseDataRepository implements DataRepository {
       { data: statRows },
       { data: partnerRows },
     ] = await Promise.all([
-      supabase.from("logo_settings").select("logo_path").order("updated_at", { ascending: false }).limit(1),
+      // `nullsFirst: false` matters here: `logo_settings` on the test
+      // project has dozens of fully-blank rows (`logo_path` AND
+      // `updated_at` both null) left over from old-panel testing, and
+      // Postgres' default for `ORDER BY updated_at DESC` sorts nulls
+      // *first* — without this override, one of those blank rows would
+      // always win over a real, freshly-updated logo row.
+      supabase
+        .from("logo_settings")
+        .select("logo_path")
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(1),
       supabase
         .from("hero_settings")
         .select("title, subtitle, image_path")
-        .order("updated_at", { ascending: false })
+        .order("updated_at", { ascending: false, nullsFirst: false })
         .limit(1),
       supabase
         .from("featured_section_settings")
@@ -564,6 +579,128 @@ export class SupabaseDataRepository implements DataRepository {
       stats: (statRows ?? []).map((row) => mapStat(row as SupabaseStatRow)).sort(byDisplayOrder),
       partners: (partnerRows ?? []).map((row) => mapPartner(row as SupabasePartnerRow)).sort(byDisplayOrder),
     };
+  }
+
+  /**
+   * Replaces the current logo. `logo_settings` has accumulated multiple old
+   * rows in the live data (see the comment in `getHomePageOverview`), so
+   * this looks up the most-recently-updated row and updates it in place
+   * instead of inserting a new one — that stops the row count from growing
+   * further, rather than repeating the old panel's insert-every-time
+   * behavior. The previous logo file is deleted from storage only after the
+   * new path is safely persisted, and only best-effort — a delete failure
+   * is logged but doesn't fail the action, since an orphaned old file is
+   * harmless while a broken logo reference isn't.
+   */
+  async updateHomeLogo(input: UpdateHomeLogoInput): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("logo_settings")
+      .select("id, logo_path")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1);
+    if (selectError) throw selectError;
+
+    const current = (existing?.[0] ?? null) as { id: string; logo_path: string | null } | null;
+
+    if (current) {
+      const { error } = await client
+        .from("logo_settings")
+        .update({ logo_path: input.logoPath, updated_at: new Date().toISOString() })
+        .eq("id", current.id);
+      if (error) throw error;
+    } else {
+      const { error } = await client
+        .from("logo_settings")
+        .insert({ logo_path: input.logoPath, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    }
+
+    if (current?.logo_path && current.logo_path !== input.logoPath) {
+      const { error } = await client.storage.from("site-images").remove([current.logo_path]);
+      if (error) console.error("[updateHomeLogo] eski logo dosyası silinemedi:", error);
+    }
+  }
+
+  /**
+   * Updates the hero title/subtitle and, optionally, its image — same
+   * update-latest-row pattern and best-effort old-file cleanup as
+   * `updateHomeLogo`. When no new image was uploaded this time
+   * (`input.imagePath` is undefined), the existing `image_path` is kept
+   * rather than cleared, so editing just the copy never blanks the banner.
+   */
+  async updateHomeHero(input: UpdateHomeHeroInput): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("hero_settings")
+      .select("id, image_path")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1);
+    if (selectError) throw selectError;
+
+    const current = (existing?.[0] ?? null) as { id: string; image_path: string | null } | null;
+    const imagePath = input.imagePath ?? current?.image_path ?? null;
+
+    if (current) {
+      const { error } = await client
+        .from("hero_settings")
+        .update({
+          title: input.title,
+          subtitle: input.subtitle,
+          image_path: imagePath,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", current.id);
+      if (error) throw error;
+    } else {
+      const { error } = await client.from("hero_settings").insert({
+        title: input.title,
+        subtitle: input.subtitle,
+        image_path: imagePath,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    }
+
+    if (input.imagePath && current?.image_path && current.image_path !== input.imagePath) {
+      const { error } = await client.storage.from("site-images").remove([current.image_path]);
+      if (error) console.error("[updateHomeHero] eski hero görseli silinemedi:", error);
+    }
+  }
+
+  /**
+   * Adds a new partner at the end of the current display order (highest
+   * existing `display_order` + 1). Ordering/active-state edits for existing
+   * partners aren't part of this method — only creation is.
+   */
+  async createPartner(input: CreatePartnerInput): Promise<Partner> {
+    const client = await createSupabaseServerClient();
+
+    const { data: maxRows, error: maxError } = await client
+      .from("partners")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1);
+    if (maxError) throw maxError;
+
+    const nextDisplayOrder = ((maxRows?.[0]?.display_order as number | null) ?? 0) + 1;
+
+    const { data, error } = await client
+      .from("partners")
+      .insert({
+        name: input.name,
+        website_url: input.websiteUrl || null,
+        logo_path: input.logoPath,
+        display_order: nextDisplayOrder,
+        is_active: true,
+      })
+      .select("id, name, logo_path, website_url, display_order, is_active")
+      .single();
+    if (error) throw error;
+
+    return mapPartner(data as SupabasePartnerRow);
   }
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

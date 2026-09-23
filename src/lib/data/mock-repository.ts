@@ -7,13 +7,14 @@ import type {
   CreateTourInput,
   DashboardStats,
   HomePageOverview,
+  Partner,
   RequestFilters,
   RequestStatus,
   TeklifTalebi,
   Tour,
   TourFilters,
 } from "@/lib/types";
-import type { DataRepository } from "./repository";
+import type { CreatePartnerInput, DataRepository } from "./repository";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { mockAgencies } from "./mock/agencies";
 import { mockRequests, findMockRequestById } from "./mock/requests";
@@ -77,6 +78,25 @@ export class MockDataRepository implements DataRepository {
       mapLocations: [],
       stats: [],
       partners: [],
+    };
+  }
+
+  async updateHomeLogo(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async updateHomeHero(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async createPartner(input: CreatePartnerInput): Promise<Partner> {
+    return {
+      id: `mock-partner-${Date.now()}`,
+      name: input.name,
+      logoUrl: input.logoPath,
+      websiteUrl: input.websiteUrl,
+      displayOrder: 0,
+      isActive: true,
     };
   }
 

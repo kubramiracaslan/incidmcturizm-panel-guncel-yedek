@@ -4,6 +4,9 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { TourCard } from "@/components/tours/TourCard";
+import { LogoEditButton } from "@/components/home/LogoEditButton";
+import { HeroEditButton } from "@/components/home/HeroEditButton";
+import { PartnerCreateButton } from "@/components/home/PartnerCreateButton";
 import { repository } from "@/lib/data";
 
 function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -57,7 +60,7 @@ export default async function AdminHomePageManagement() {
       />
 
       <div className="flex flex-col gap-6">
-        <SectionCard title="Logo" action={<ComingSoonButton label="Değiştir" />}>
+        <SectionCard title="Logo" action={<LogoEditButton currentLogoUrl={overview.logo?.logoUrl ?? null} />}>
           {overview.logo?.logoUrl ? (
             <div className="relative h-16 w-40 overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container">
               <Image
@@ -73,7 +76,18 @@ export default async function AdminHomePageManagement() {
           )}
         </SectionCard>
 
-        <SectionCard title="Hero Banner" action={<ComingSoonButton label="Düzenle" />}>
+        <SectionCard
+          title="Hero Banner"
+          action={
+            <HeroEditButton
+              hero={{
+                title: overview.hero?.title ?? "",
+                subtitle: overview.hero?.subtitle ?? "",
+                imageUrl: overview.hero?.imageUrl ?? null,
+              }}
+            />
+          }
+        >
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {overview.hero?.imageUrl ? (
               <div className="relative h-48 overflow-hidden rounded-lg border border-outline-variant/30">
@@ -250,7 +264,7 @@ export default async function AdminHomePageManagement() {
           )}
         </SectionCard>
 
-        <SectionCard title="İş Ortakları" action={<ComingSoonButton label="Yeni Ekle" />}>
+        <SectionCard title="İş Ortakları" action={<PartnerCreateButton />}>
           {overview.partners.length === 0 ? (
             <p className="text-sm text-on-surface-variant">İş ortağı bulunamadı.</p>
           ) : (

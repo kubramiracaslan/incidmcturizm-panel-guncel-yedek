@@ -115,6 +115,7 @@ export function NewTourForm() {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [form, setForm] = useState<FormState>(emptyFormState);
   const [fieldErrors, setFieldErrors] = useState<TourGeneralFieldErrors>({});
+  const [heroImageError, setHeroImageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -124,6 +125,7 @@ export function NewTourForm() {
   function openForm() {
     setForm(emptyFormState);
     setFieldErrors({});
+    setHeroImageError(null);
     setFormError(null);
     setActiveTab("general");
     setOpen(true);
@@ -165,6 +167,14 @@ export function NewTourForm() {
       return;
     }
     setFieldErrors({});
+
+    if (!form.images.hero.path) {
+      setHeroImageError("Hero görseli zorunludur.");
+      setActiveTab("images");
+      setFormError("Lütfen 'Görseller' sekmesinden bir Hero Görseli yükleyin — bu alan olmadan tur kaydedilemez.");
+      return;
+    }
+    setHeroImageError(null);
     setFormError(null);
 
     const input = toCreateTourInput(form);
@@ -230,7 +240,11 @@ export function NewTourForm() {
               {activeTab === "images" && (
                 <ImagesTab
                   value={form.images}
-                  onChange={(images) => setForm((prev) => ({ ...prev, images }))}
+                  heroError={heroImageError}
+                  onChange={(images) => {
+                    if (images.hero.path) setHeroImageError(null);
+                    setForm((prev) => ({ ...prev, images }));
+                  }}
                 />
               )}
               {activeTab === "highlights" && (

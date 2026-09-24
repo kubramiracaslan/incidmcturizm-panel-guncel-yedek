@@ -31,24 +31,27 @@ interface ImageSlotFieldProps {
   label: string;
   slot: ImageSlotState;
   imageType: "hero" | "gallery" | "map";
+  required?: boolean;
+  error?: string | null;
   onChange: (slot: ImageSlotState) => void;
 }
 
-function ImageSlotField({ label, slot, imageType, onChange }: ImageSlotFieldProps) {
+function ImageSlotField({ label, slot, imageType, required, error: externalError, onChange }: ImageSlotFieldProps) {
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const inputId = `tour-image-${imageType}-${label.replace(/\s+/g, "-")}`;
+  const error = uploadError ?? externalError;
 
   async function handleFile(file: File) {
     setUploading(true);
-    setError(null);
+    setUploadError(null);
     const formData = new FormData();
     formData.set("file", file);
     formData.set("imageType", imageType);
     const result = await uploadTourImageAction(formData);
     setUploading(false);
     if (result.error || !result.path || !result.url) {
-      setError(result.error ?? "Yükleme başarısız.");
+      setUploadError(result.error ?? "Yükleme başarısız.");
       return;
     }
     onChange({ path: result.path, url: result.url });
@@ -58,9 +61,14 @@ function ImageSlotField({ label, slot, imageType, onChange }: ImageSlotFieldProp
     <div>
       <p className="mb-1.5 text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant">
         {label}
+        {required && <span className="ml-1 text-error">*</span>}
       </p>
       <div className="flex items-center gap-4">
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-surface-deep">
+        <div
+          className={`flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-surface-deep ${
+            error ? "border-error" : "border-outline-variant"
+          }`}
+        >
           {slot.url ? (
             <img src={slot.url} alt={label} className="h-full w-full object-cover" />
           ) : (
@@ -102,16 +110,19 @@ function ImageSlotField({ label, slot, imageType, onChange }: ImageSlotFieldProp
 
 interface ImagesTabProps {
   value: ImagesFormState;
+  heroError?: string | null;
   onChange: (value: ImagesFormState) => void;
 }
 
-export function ImagesTab({ value, onChange }: ImagesTabProps) {
+export function ImagesTab({ value, heroError, onChange }: ImagesTabProps) {
   return (
     <div className="space-y-8">
       <ImageSlotField
         label="Hero Görsel"
         slot={value.hero}
         imageType="hero"
+        required
+        error={heroError}
         onChange={(slot) => onChange({ ...value, hero: slot })}
       />
       <ImageSlotField

@@ -28,14 +28,24 @@ export function ServiceStatusToggleButton({ id, isActive }: ServiceStatusToggleB
       type="button"
       onClick={toggle}
       disabled={isPending}
-      className={`inline-flex items-center rounded border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
-        active
-          ? "border-secondary/20 bg-secondary/20 text-secondary hover:bg-secondary/30"
-          : "border-outline-variant bg-surface-variant text-on-surface-variant hover:bg-surface-container"
-      }`}
+      aria-pressed={active}
+      title={active ? "Pasif yapmak için tıklayın" : "Aktif yapmak için tıklayın"}
+      className="inline-flex items-center gap-2 rounded-full p-0.5 transition-opacity hover:opacity-80 disabled:opacity-50"
     >
-      <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-      {active ? "Aktif" : "Pasif"}
+      <span
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+          active ? "bg-secondary" : "bg-outline-variant"
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            active ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </span>
+      <span className={`text-xs font-medium ${active ? "text-secondary" : "text-on-surface-variant"}`}>
+        {active ? "Aktif" : "Pasif"}
+      </span>
     </button>
   );
 }

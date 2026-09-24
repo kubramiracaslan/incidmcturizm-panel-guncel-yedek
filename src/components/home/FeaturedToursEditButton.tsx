@@ -168,17 +168,6 @@ export function FeaturedToursEditButton({ featuredSection, tours }: FeaturedTour
                       className="w-full rounded-lg border border-outline-variant bg-surface-deep px-3 py-2.5 text-sm text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
                     />
                   </div>
-                  {sectionError && <p className="text-sm text-error">{sectionError}</p>}
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      disabled={isSectionPending}
-                      onClick={saveSection}
-                      className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-primary-container transition-colors hover:bg-brand-dark disabled:opacity-50"
-                    >
-                      {isSectionPending ? "Kaydediliyor..." : "Ayarları Kaydet"}
-                    </button>
-                  </div>
                 </div>
               </section>
 
@@ -215,19 +204,43 @@ export function FeaturedToursEditButton({ featuredSection, tours }: FeaturedTour
                           type="button"
                           disabled={pendingTourId === tour.id}
                           onClick={() => toggleTour(tour)}
-                          className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
                             isPopular
-                              ? "border border-outline-variant text-on-surface-variant hover:bg-surface-container"
-                              : "bg-brand text-primary-container hover:bg-brand-dark"
+                              ? "bg-brand text-primary-container hover:bg-brand-dark"
+                              : "border border-outline-variant text-on-surface-variant hover:bg-surface-container"
                           }`}
                         >
-                          {pendingTourId === tour.id ? "..." : isPopular ? "Kaldır" : "Popüler Yap"}
+                          {pendingTourId === tour.id ? (
+                            "..."
+                          ) : isPopular ? (
+                            <>
+                              <Icon name="check" className="text-[14px]" />
+                              Popüler
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="add" className="text-[14px]" />
+                              Ekle
+                            </>
+                          )}
                         </button>
                       </div>
                     );
                   })}
                 </div>
               </section>
+
+              {sectionError && <p className="mt-6 text-sm text-error">{sectionError}</p>}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  disabled={isSectionPending}
+                  onClick={saveSection}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-primary-container transition-colors hover:bg-brand-dark disabled:opacity-50"
+                >
+                  {isSectionPending ? "Kaydediliyor..." : "Ayarları Kaydet"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

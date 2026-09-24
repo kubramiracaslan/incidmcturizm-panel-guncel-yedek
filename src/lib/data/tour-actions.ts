@@ -87,7 +87,8 @@ export async function createTourAction(input: CreateTourInput): Promise<CreateTo
     const created = await repository.createTour(input);
     revalidatePath("/admin/tur-katalogu");
     return { error: null, fieldErrors: {}, tourId: created.id, slug: created.slug };
-  } catch {
+  } catch (error) {
+    console.error("[createTourAction] Supabase error:", error instanceof Error ? error.message : JSON.stringify(error));
     return { error: "Tur kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.", fieldErrors: {} };
   }
 }

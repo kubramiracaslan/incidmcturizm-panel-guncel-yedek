@@ -11,7 +11,7 @@ export interface UploadedImage {
 
 interface SiteImageUploadFieldProps {
   label: string;
-  imageType: "logo" | "hero" | "partner";
+  imageType: "logo" | "hero" | "partner" | "service";
   currentUrl: string | null;
   maxSizeMB: number;
   onChange: (image: UploadedImage | null) => void;

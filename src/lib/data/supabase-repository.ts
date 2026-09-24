@@ -24,6 +24,9 @@ import type {
 import type {
   CreatePartnerInput,
   DataRepository,
+  ServiceInput,
+  StatInput,
+  UpdateFeaturedSectionInput,
   UpdateHomeHeroInput,
   UpdateHomeLogoInput,
 } from "./repository";
@@ -81,6 +84,7 @@ interface SupabaseTourRow {
   short_description: string | null;
   long_description: string | null;
   hero_image_path: string | null;
+  popular_tour?: boolean | null;
 }
 
 interface SupabaseTourContentRow {
@@ -118,6 +122,7 @@ function mapTourRow(
     includes: (extra?.includes ?? []).slice().sort(byOrder).map((i) => i.content),
     excludes: [],
     importantNotes: (extra?.notes ?? []).slice().sort(byOrder).map((n) => n.content),
+    isPopular: row.popular_tour ?? false,
   };
 }
 
@@ -276,6 +281,9 @@ function mapPartner(row: SupabasePartnerRow): Partner {
 
 const byDisplayOrder = <T extends { displayOrder: number }>(a: T, b: T) => a.displayOrder - b.displayOrder;
 
+const MAX_POPULAR_TOURS = 6;
+const MAX_STATS = 3;
+
 /**
  * Reads from the site's existing (adminpanel3) Supabase project. Only the
  * tables that project already has are touched, and only via SELECT — no
@@ -290,7 +298,7 @@ export class SupabaseDataRepository implements DataRepository {
     let query = supabase
       .from("tours")
       .select(
-        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path",
+        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path, popular_tour",
       )
       .order("created_at", { ascending: false });
 
@@ -515,7 +523,7 @@ export class SupabaseDataRepository implements DataRepository {
       supabase
         .from("featured_section_settings")
         .select("title, subtitle, description, is_active")
-        .order("updated_at", { ascending: false })
+        .order("updated_at", { ascending: false, nullsFirst: false })
         .limit(1),
       supabase
         .from("tours")
@@ -701,6 +709,246 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
 
     return mapPartner(data as SupabasePartnerRow);
+  }
+
+  /**
+   * Updates the featured-tours section copy (title/subtitle/description) —
+   * same update-latest-row-or-insert pattern as `updateHomeLogo`/
+   * `updateHomeHero`. Always writes `is_active: true`: this repository only
+   * ever maintains one current row per singleton setting, so there's no
+   * second row to deactivate the way the old panel's multi-row scheme did.
+   */
+  async updateFeaturedSection(input: UpdateFeaturedSectionInput): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("featured_section_settings")
+      .select("id")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1);
+    if (selectError) throw selectError;
+
+    const current = (existing?.[0] ?? null) as { id: string } | null;
+    const payload = {
+      title: input.title,
+      subtitle: input.subtitle,
+      description: input.description,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (current) {
+      const { error } = await client.from("featured_section_settings").update(payload).eq("id", current.id);
+      if (error) throw error;
+    } else {
+      const { error } = await client.from("featured_section_settings").insert(payload);
+      if (error) throw error;
+    }
+  }
+
+  /**
+   * Marks a tour as popular (shown in the home page's featured section) or
+   * clears that flag. The home page only has room for a handful of featured
+   * tours, so turning the flag on is capped at `MAX_POPULAR_TOURS` — callers
+   * distinguish that case by checking `error.message`.
+   */
+  async setTourPopular(tourId: string, isPopular: boolean): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    if (isPopular) {
+      const { count, error: countError } = await client
+        .from("tours")
+        .select("id", { count: "exact", head: true })
+        .eq("popular_tour", true);
+      if (countError) throw countError;
+      if ((count ?? 0) >= MAX_POPULAR_TOURS) {
+        throw new Error("MAX_POPULAR_TOURS");
+      }
+    }
+
+    const { error } = await client.from("tours").update({ popular_tour: isPopular }).eq("id", tourId);
+    if (error) throw error;
+  }
+
+  /**
+   * Creates a service card at the end of the current display order (highest
+   * existing `display_order` + 1) — same pattern as `createPartner`.
+   */
+  async createService(input: ServiceInput): Promise<SiteService> {
+    const client = await createSupabaseServerClient();
+
+    const { data: maxRows, error: maxError } = await client
+      .from("services")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1);
+    if (maxError) throw maxError;
+
+    const nextDisplayOrder = ((maxRows?.[0]?.display_order as number | null) ?? 0) + 1;
+
+    const { data, error } = await client
+      .from("services")
+      .insert({
+        name: input.name,
+        short_description: input.shortDescription,
+        long_description: input.longDescription,
+        icon_svg: input.iconSvg,
+        image_path: input.imagePath || null,
+        display_order: nextDisplayOrder,
+        is_active: true,
+      })
+      .select("id, name, short_description, long_description, icon_svg, image_path, display_order, is_active")
+      .single();
+    if (error) throw error;
+
+    return mapService(data as SupabaseServiceRow);
+  }
+
+  /**
+   * Updates a service's fields by id. When a new image was uploaded
+   * (`input.imagePath` set), the previous image file is deleted from
+   * storage once the row update succeeds — same best-effort cleanup as
+   * `updateHomeLogo`.
+   */
+  async updateService(id: string, input: ServiceInput): Promise<SiteService> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("services")
+      .select("image_path")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+    const previousImagePath = (existing as { image_path: string | null } | null)?.image_path ?? null;
+    const imagePath = input.imagePath || previousImagePath;
+
+    const { data, error } = await client
+      .from("services")
+      .update({
+        name: input.name,
+        short_description: input.shortDescription,
+        long_description: input.longDescription,
+        icon_svg: input.iconSvg,
+        image_path: imagePath,
+      })
+      .eq("id", id)
+      .select("id, name, short_description, long_description, icon_svg, image_path, display_order, is_active")
+      .single();
+    if (error) throw error;
+
+    if (input.imagePath && previousImagePath && previousImagePath !== input.imagePath) {
+      const { error: removeError } = await client.storage.from("site-images").remove([previousImagePath]);
+      if (removeError) console.error("[updateService] eski görsel silinemedi:", removeError);
+    }
+
+    return mapService(data as SupabaseServiceRow);
+  }
+
+  /** Deletes a service and, best-effort, its image file from storage. */
+  async deleteService(id: string): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("services")
+      .select("image_path")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+
+    const { error } = await client.from("services").delete().eq("id", id);
+    if (error) throw error;
+
+    const imagePath = (existing as { image_path: string | null } | null)?.image_path;
+    if (imagePath) {
+      const { error: removeError } = await client.storage.from("site-images").remove([imagePath]);
+      if (removeError) console.error("[deleteService] görsel silinemedi:", removeError);
+    }
+  }
+
+  async updateServiceStatus(id: string, isActive: boolean): Promise<void> {
+    const client = await createSupabaseServerClient();
+    const { error } = await client.from("services").update({ is_active: isActive }).eq("id", id);
+    if (error) throw error;
+  }
+
+  /**
+   * Creates a stat card, capped at `MAX_STATS`. `title`/`subtitle_first`/
+   * `subtitle_second` aren't exposed in the stat form (they're a duplicated
+   * section heading, not per-stat content — confirmed against live data,
+   * every existing row carries the same three values), so a new row copies
+   * them from any existing stat, falling back to the old panel's original
+   * defaults when there are no stats yet.
+   */
+  async createStat(input: StatInput): Promise<SiteStat> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existingRows, error: existingError } = await client
+      .from("stats")
+      .select("title, subtitle_first, subtitle_second, display_order")
+      .order("display_order", { ascending: false })
+      .limit(1);
+    if (existingError) throw existingError;
+
+    const existing = (existingRows?.[0] ?? null) as {
+      title: string | null;
+      subtitle_first: string | null;
+      subtitle_second: string | null;
+      display_order: number | null;
+    } | null;
+
+    const { count, error: countError } = await client.from("stats").select("id", { count: "exact", head: true });
+    if (countError) throw countError;
+    if ((count ?? 0) >= MAX_STATS) {
+      throw new Error("MAX_STATS");
+    }
+
+    const { data, error } = await client
+      .from("stats")
+      .insert({
+        title: existing?.title ?? "RAKAMLARLA BİZ",
+        subtitle_first: existing?.subtitle_first ?? "Seyahatin",
+        subtitle_second: existing?.subtitle_second ?? "Geleceğini Şekillendiriyoruz",
+        stat_value: input.value,
+        stat_label: input.label,
+        stat_description: input.description,
+        stat_icon_svg: input.iconSvg,
+        display_order: (existing?.display_order ?? 0) + 1,
+        is_active: true,
+      })
+      .select(
+        "id, title, subtitle_first, subtitle_second, stat_value, stat_label, stat_description, stat_icon_svg, display_order, is_active",
+      )
+      .single();
+    if (error) throw error;
+
+    return mapStat(data as SupabaseStatRow);
+  }
+
+  async updateStat(id: string, input: StatInput): Promise<SiteStat> {
+    const client = await createSupabaseServerClient();
+
+    const { data, error } = await client
+      .from("stats")
+      .update({
+        stat_value: input.value,
+        stat_label: input.label,
+        stat_description: input.description,
+        stat_icon_svg: input.iconSvg,
+      })
+      .eq("id", id)
+      .select(
+        "id, title, subtitle_first, subtitle_second, stat_value, stat_label, stat_description, stat_icon_svg, display_order, is_active",
+      )
+      .single();
+    if (error) throw error;
+
+    return mapStat(data as SupabaseStatRow);
+  }
+
+  async deleteStat(id: string): Promise<void> {
+    const client = await createSupabaseServerClient();
+    const { error } = await client.from("stats").delete().eq("id", id);
+    if (error) throw error;
   }
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

@@ -7,6 +7,12 @@ import { TourCard } from "@/components/tours/TourCard";
 import { LogoEditButton } from "@/components/home/LogoEditButton";
 import { HeroEditButton } from "@/components/home/HeroEditButton";
 import { PartnerCreateButton } from "@/components/home/PartnerCreateButton";
+import { FeaturedToursEditButton } from "@/components/home/FeaturedToursEditButton";
+import { ServiceCreateButton, ServiceEditButton } from "@/components/home/ServiceFormModal";
+import { ServiceDeleteButton } from "@/components/home/ServiceDeleteButton";
+import { ServiceStatusToggleButton } from "@/components/home/ServiceStatusToggleButton";
+import { StatCreateButton, StatEditButton } from "@/components/home/StatFormModal";
+import { StatDeleteButton } from "@/components/home/StatDeleteButton";
 import { repository } from "@/lib/data";
 
 function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -50,7 +56,7 @@ function ActiveBadge({ active }: { active: boolean }) {
 }
 
 export default async function AdminHomePageManagement() {
-  const overview = await repository.getHomePageOverview();
+  const [overview, tours] = await Promise.all([repository.getHomePageOverview(), repository.listTours()]);
 
   return (
     <AdminShell title="Ana Sayfa Yönetimi">
@@ -113,7 +119,19 @@ export default async function AdminHomePageManagement() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Öne Çıkan Turlar" action={<ComingSoonButton label="Ayarları Düzenle" />}>
+        <SectionCard
+          title="Öne Çıkan Turlar"
+          action={
+            <FeaturedToursEditButton
+              featuredSection={{
+                title: overview.featuredSection?.title ?? "",
+                subtitle: overview.featuredSection?.subtitle ?? "",
+                description: overview.featuredSection?.description ?? "",
+              }}
+              tours={tours}
+            />
+          }
+        >
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <p className="mb-1 text-headline-sm font-headline-sm font-bold text-on-surface">
@@ -137,7 +155,7 @@ export default async function AdminHomePageManagement() {
           )}
         </SectionCard>
 
-        <SectionCard title="Bilgilendirmeler" action={<ComingSoonButton label="Yeni Ekle" />}>
+        <SectionCard title="Bilgilendirmeler" action={<ServiceCreateButton />}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse whitespace-nowrap text-left">
               <thead>
@@ -157,12 +175,15 @@ export default async function AdminHomePageManagement() {
                   <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
                     Durum
                   </th>
+                  <th className="px-4 py-3 text-right text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    İşlem
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-table-data font-table-data">
                 {overview.services.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-on-surface-variant">
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-on-surface-variant">
                       Bilgilendirme içeriği bulunamadı.
                     </td>
                   </tr>
@@ -184,7 +205,13 @@ export default async function AdminHomePageManagement() {
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant">{service.displayOrder}</td>
                     <td className="px-4 py-3">
-                      <ActiveBadge active={service.isActive} />
+                      <ServiceStatusToggleButton id={service.id} isActive={service.isActive} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <ServiceEditButton service={service} />
+                        <ServiceDeleteButton id={service.id} name={service.name} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -238,7 +265,7 @@ export default async function AdminHomePageManagement() {
           )}
         </SectionCard>
 
-        <SectionCard title="İstatistikler" action={<ComingSoonButton label="Yeni Ekle" />}>
+        <SectionCard title="İstatistikler" action={<StatCreateButton />}>
           {overview.stats.length === 0 ? (
             <p className="text-sm text-on-surface-variant">İstatistik bulunamadı.</p>
           ) : (
@@ -253,7 +280,11 @@ export default async function AdminHomePageManagement() {
                       className="inline-flex h-8 w-8 items-center justify-center text-secondary [&_svg]:h-8 [&_svg]:w-8"
                       dangerouslySetInnerHTML={{ __html: stat.iconSvg }}
                     />
-                    <ActiveBadge active={stat.isActive} />
+                    <div className="flex items-center gap-1">
+                      <StatEditButton stat={stat} />
+                      <StatDeleteButton id={stat.id} label={stat.label} />
+                      <ActiveBadge active={stat.isActive} />
+                    </div>
                   </div>
                   <p className="text-headline-md font-headline-md font-bold text-on-surface">{stat.value}</p>
                   <p className="text-sm font-medium text-on-surface">{stat.label}</p>

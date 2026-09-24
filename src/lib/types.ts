@@ -35,6 +35,7 @@ export interface Tour {
   includes: string[];
   excludes: string[];
   importantNotes: string[];
+  isPopular: boolean;
 }
 
 export interface CreateTourHighlightInput {

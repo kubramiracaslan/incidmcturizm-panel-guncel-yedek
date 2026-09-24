@@ -10,11 +10,13 @@ import type {
   Partner,
   RequestFilters,
   RequestStatus,
+  SiteService,
+  SiteStat,
   TeklifTalebi,
   Tour,
   TourFilters,
 } from "@/lib/types";
-import type { CreatePartnerInput, DataRepository } from "./repository";
+import type { CreatePartnerInput, DataRepository, ServiceInput, StatInput } from "./repository";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { mockAgencies } from "./mock/agencies";
 import { mockRequests, findMockRequestById } from "./mock/requests";
@@ -98,6 +100,82 @@ export class MockDataRepository implements DataRepository {
       displayOrder: 0,
       isActive: true,
     };
+  }
+
+  async updateFeaturedSection(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async setTourPopular(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async createService(input: ServiceInput): Promise<SiteService> {
+    return {
+      id: `mock-service-${Date.now()}`,
+      name: input.name,
+      shortDescription: input.shortDescription,
+      longDescription: input.longDescription,
+      iconSvg: input.iconSvg,
+      imageUrl: input.imagePath ?? null,
+      displayOrder: 0,
+      isActive: true,
+    };
+  }
+
+  async updateService(id: string, input: ServiceInput): Promise<SiteService> {
+    return {
+      id,
+      name: input.name,
+      shortDescription: input.shortDescription,
+      longDescription: input.longDescription,
+      iconSvg: input.iconSvg,
+      imageUrl: input.imagePath ?? null,
+      displayOrder: 0,
+      isActive: true,
+    };
+  }
+
+  async deleteService(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async updateServiceStatus(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
+  }
+
+  async createStat(input: StatInput): Promise<SiteStat> {
+    return {
+      id: `mock-stat-${Date.now()}`,
+      title: "RAKAMLARLA BİZ",
+      subtitleFirst: "Seyahatin",
+      subtitleSecond: "Geleceğini Şekillendiriyoruz",
+      value: input.value,
+      label: input.label,
+      description: input.description,
+      iconSvg: input.iconSvg,
+      displayOrder: 0,
+      isActive: true,
+    };
+  }
+
+  async updateStat(id: string, input: StatInput): Promise<SiteStat> {
+    return {
+      id,
+      title: "RAKAMLARLA BİZ",
+      subtitleFirst: "Seyahatin",
+      subtitleSecond: "Geleceğini Şekillendiriyoruz",
+      value: input.value,
+      label: input.label,
+      description: input.description,
+      iconSvg: input.iconSvg,
+      displayOrder: 0,
+      isActive: true,
+    };
+  }
+
+  async deleteStat(): Promise<void> {
+    // Mock repository has no persisted home-page write state; no-op.
   }
 
   async listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {

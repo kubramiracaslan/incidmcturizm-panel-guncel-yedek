@@ -2,6 +2,7 @@ import type { Tour } from "@/lib/types";
 
 export const mockTours: Tour[] = [
   {
+    isPopular: false,
     id: "tur-avustralya-tasmanya",
     slug: "avustralya-tasmanya-turu",
     name: "Avustralya & Tasmanya Turu",
@@ -45,6 +46,7 @@ export const mockTours: Tour[] = [
     ],
   },
   {
+    isPopular: false,
     id: "tur-balkanlar-ekspres",
     slug: "ucaklı-buyuk-balkanlar-turu",
     name: "Uçaklı Büyük Balkanlar Turu",
@@ -79,6 +81,7 @@ export const mockTours: Tour[] = [
     ],
   },
   {
+    isPopular: false,
     id: "tur-fas-kraliyet",
     slug: "fas-kraliyet-sehirleri-turu",
     name: "Fas Kraliyet Şehirleri Turu",
@@ -112,6 +115,7 @@ export const mockTours: Tour[] = [
     ],
   },
   {
+    isPopular: false,
     id: "tur-britanya",
     slug: "buyuk-britanya-turu",
     name: "Büyük Britanya Turu",
@@ -137,6 +141,7 @@ export const mockTours: Tour[] = [
     importantNotes: ["Pasaport geçerlilik süresi en az 6 ay olmalıdır."],
   },
   {
+    isPopular: false,
     id: "tur-maldivler",
     slug: "luks-maldivler-balayi",
     name: "Lüks Maldivler Balayı",

@@ -10,6 +10,8 @@ import type {
   Partner,
   RequestFilters,
   RequestStatus,
+  SiteService,
+  SiteStat,
   TeklifTalebi,
   Tour,
   TourFilters,
@@ -30,6 +32,27 @@ export interface CreatePartnerInput {
   name: string;
   websiteUrl: string;
   logoPath: string;
+}
+
+export interface UpdateFeaturedSectionInput {
+  title: string;
+  subtitle: string;
+  description: string;
+}
+
+export interface ServiceInput {
+  name: string;
+  shortDescription: string;
+  longDescription: string;
+  iconSvg: string;
+  imagePath?: string;
+}
+
+export interface StatInput {
+  value: number;
+  label: string;
+  description: string;
+  iconSvg: string;
 }
 
 /**
@@ -53,6 +76,15 @@ export interface DataRepository {
   updateHomeLogo(input: UpdateHomeLogoInput): Promise<void>;
   updateHomeHero(input: UpdateHomeHeroInput): Promise<void>;
   createPartner(input: CreatePartnerInput): Promise<Partner>;
+  updateFeaturedSection(input: UpdateFeaturedSectionInput): Promise<void>;
+  setTourPopular(tourId: string, isPopular: boolean): Promise<void>;
+  createService(input: ServiceInput): Promise<SiteService>;
+  updateService(id: string, input: ServiceInput): Promise<SiteService>;
+  deleteService(id: string): Promise<void>;
+  updateServiceStatus(id: string, isActive: boolean): Promise<void>;
+  createStat(input: StatInput): Promise<SiteStat>;
+  updateStat(id: string, input: StatInput): Promise<SiteStat>;
+  deleteStat(id: string): Promise<void>;
 
   listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]>;
   getRequestById(id: string): Promise<TeklifTalebi | null>;

@@ -65,3 +65,88 @@ export function validatePartnerInput(input: PartnerInput): PartnerValidationResu
   }
   return { valid: true, value, fieldErrors: {} };
 }
+
+export interface FeaturedSectionInput {
+  title: string;
+  subtitle: string;
+  description: string;
+}
+
+/**
+ * None of the featured-section fields are required — matches the old
+ * panel, where "Ayarları Kaydet" accepted an empty title/subtitle/
+ * description. This just trims.
+ */
+export function validateFeaturedSectionInput(input: FeaturedSectionInput): FeaturedSectionInput {
+  return {
+    title: input.title.trim(),
+    subtitle: input.subtitle.trim(),
+    description: input.description.trim(),
+  };
+}
+
+export interface ServiceFormInput {
+  name: string;
+  shortDescription: string;
+  longDescription: string;
+  iconSvg: string;
+}
+
+export type ServiceFieldErrors = Partial<Record<keyof ServiceFormInput, string>>;
+
+export type ServiceValidationResult =
+  | { valid: true; value: ServiceFormInput; fieldErrors: ServiceFieldErrors }
+  | { valid: false; fieldErrors: ServiceFieldErrors };
+
+export function validateServiceInput(input: ServiceFormInput): ServiceValidationResult {
+  const value: ServiceFormInput = {
+    name: input.name.trim(),
+    shortDescription: input.shortDescription.trim(),
+    longDescription: input.longDescription.trim(),
+    iconSvg: input.iconSvg.trim(),
+  };
+
+  const fieldErrors: ServiceFieldErrors = {};
+  if (!value.name) fieldErrors.name = "Başlık boş bırakılamaz.";
+  if (!value.shortDescription) fieldErrors.shortDescription = "Kısa açıklama boş bırakılamaz.";
+  if (!value.longDescription) fieldErrors.longDescription = "Detaylı açıklama boş bırakılamaz.";
+  if (!value.iconSvg) fieldErrors.iconSvg = "İkon SVG kodu boş bırakılamaz.";
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { valid: false, fieldErrors };
+  }
+  return { valid: true, value, fieldErrors: {} };
+}
+
+export interface StatFormInput {
+  value: string;
+  label: string;
+  description: string;
+  iconSvg: string;
+}
+
+export type StatFieldErrors = Partial<Record<keyof StatFormInput, string>>;
+
+export type StatValidationResult =
+  | { valid: true; value: { value: number; label: string; description: string; iconSvg: string }; fieldErrors: StatFieldErrors }
+  | { valid: false; fieldErrors: StatFieldErrors };
+
+export function validateStatInput(input: StatFormInput): StatValidationResult {
+  const label = input.label.trim();
+  const description = input.description.trim();
+  const iconSvg = input.iconSvg.trim();
+
+  const fieldErrors: StatFieldErrors = {};
+  const numericValue = Number(input.value);
+  if (!input.value.trim() || Number.isNaN(numericValue) || numericValue < 0) {
+    fieldErrors.value = "Geçerli bir değer girin.";
+  }
+  if (!label) fieldErrors.label = "Etiket boş bırakılamaz.";
+  if (!description) fieldErrors.description = "Açıklama boş bırakılamaz.";
+  if (!iconSvg) fieldErrors.iconSvg = "İkon SVG kodu boş bırakılamaz.";
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { valid: false, fieldErrors };
+  }
+  return { valid: true, value: { value: numericValue, label, description, iconSvg }, fieldErrors: {} };
+}

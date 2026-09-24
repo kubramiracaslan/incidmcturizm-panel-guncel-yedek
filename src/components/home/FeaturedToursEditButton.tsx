@@ -220,7 +220,7 @@ export function FeaturedToursEditButton({ featuredSection, tours }: FeaturedTour
                           ) : (
                             <>
                               <Icon name="add" className="text-[14px]" />
-                              Ekle
+                              Popüler Yap
                             </>
                           )}
                         </button>

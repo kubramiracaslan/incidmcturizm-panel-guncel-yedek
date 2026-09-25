@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { Icon } from "@/components/ui/Icon";
 import { repository } from "@/lib/data";
 import { formatDate } from "@/lib/format";
+import { BlogPostEditButton } from "@/components/blog/BlogPostFormModal";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -50,15 +51,12 @@ export default async function AdminBlogDetailPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-6 lg:col-span-4">
           <div className="rounded-xl border border-outline-variant bg-primary-container p-6">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <h3 className="text-headline-sm font-headline-sm font-bold text-on-surface">
                 Blog Yönetimi
               </h3>
+              <BlogPostEditButton post={post} variant="button" />
             </div>
-            <p className="text-sm text-on-surface-variant">
-              Bu ekran şimdilik salt görüntüleme amaçlıdır — yazı ekleme/düzenleme/silme
-              yakında bu panele eklenecek.
-            </p>
           </div>
 
           <div className="rounded-xl border border-outline-variant bg-primary-container p-6">

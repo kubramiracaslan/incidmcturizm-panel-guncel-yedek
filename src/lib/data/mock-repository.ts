@@ -16,7 +16,7 @@ import type {
   Tour,
   TourFilters,
 } from "@/lib/types";
-import type { CreatePartnerInput, DataRepository, ServiceInput, StatInput } from "./repository";
+import type { BlogPostInput, CreatePartnerInput, DataRepository, ServiceInput, StatInput } from "./repository";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { mockAgencies } from "./mock/agencies";
 import { mockRequests, findMockRequestById } from "./mock/requests";
@@ -67,6 +67,58 @@ export class MockDataRepository implements DataRepository {
 
   async getBlogPostById(): Promise<BlogPost | null> {
     return null;
+  }
+
+  async createBlogPost(input: BlogPostInput): Promise<BlogPost> {
+    return {
+      id: `mock-blog-${Date.now()}`,
+      slug: input.slug,
+      title: input.title,
+      excerpt: input.excerpt,
+      categoryName: input.categoryName,
+      heroImage: input.heroImagePath,
+      heroImagePath: input.heroImagePath,
+      publishedAt: input.publishedAt,
+      readTime: input.readTime,
+      authorName: input.authorName,
+      authorTitle: input.authorTitle,
+      authorImage: input.authorImagePath,
+      authorImagePath: input.authorImagePath,
+      tags: input.tags,
+      contentHtml: input.content,
+      isPublished: false,
+      isFeatured: input.isFeatured,
+    };
+  }
+
+  async updateBlogPost(id: string, input: BlogPostInput): Promise<BlogPost> {
+    return {
+      id,
+      slug: input.slug,
+      title: input.title,
+      excerpt: input.excerpt,
+      categoryName: input.categoryName,
+      heroImage: input.heroImagePath,
+      heroImagePath: input.heroImagePath,
+      publishedAt: input.publishedAt,
+      readTime: input.readTime,
+      authorName: input.authorName,
+      authorTitle: input.authorTitle,
+      authorImage: input.authorImagePath,
+      authorImagePath: input.authorImagePath,
+      tags: input.tags,
+      contentHtml: input.content,
+      isPublished: false,
+      isFeatured: input.isFeatured,
+    };
+  }
+
+  async deleteBlogPost(): Promise<void> {
+    // Mock repository has no persisted blog write state; no-op.
+  }
+
+  async updateBlogPostStatus(): Promise<void> {
+    // Mock repository has no persisted blog write state; no-op.
   }
 
   async getHomePageOverview(): Promise<HomePageOverview> {

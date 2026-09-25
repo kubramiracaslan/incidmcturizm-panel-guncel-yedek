@@ -127,11 +127,13 @@ export interface BlogPost {
   excerpt: string;
   categoryName: string;
   heroImage: string;
+  heroImagePath: string;
   publishedAt: string; // ISO datetime
   readTime: number;
   authorName: string;
   authorTitle: string;
   authorImage: string | null;
+  authorImagePath: string;
   tags: string[];
   contentHtml: string;
   isPublished: boolean;

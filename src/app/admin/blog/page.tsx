@@ -4,6 +4,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { repository } from "@/lib/data";
 import { formatDate } from "@/lib/format";
+import { BlogPostCreateButton, BlogPostEditButton } from "@/components/blog/BlogPostFormModal";
+import { BlogPostDeleteButton } from "@/components/blog/BlogPostDeleteButton";
+import { BlogPostStatusToggleButton } from "@/components/blog/BlogPostStatusToggleButton";
 
 export default async function AdminBlogPage() {
   const posts = await repository.listBlogPosts();
@@ -13,20 +16,7 @@ export default async function AdminBlogPage() {
       <PageHeader
         title="Blog Yönetimi"
         description={`Sitedeki ${posts.length} blog yazısını görüntüleyin`}
-        actions={
-          <button
-            type="button"
-            disabled
-            title="Yakında: blog yazısı ekleme"
-            className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-brand/40 px-5 py-2.5 text-body-md font-body-md font-semibold text-primary-container/70"
-          >
-            <Icon name="add" className="text-lg" />
-            Yeni Blog Yazısı
-            <span className="ml-1 rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wider">
-              Yakında
-            </span>
-          </button>
-        }
+        actions={<BlogPostCreateButton />}
       />
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
@@ -85,26 +75,20 @@ export default async function AdminBlogPage() {
                     {post.publishedAt ? formatDate(post.publishedAt) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    {post.isPublished ? (
-                      <span className="inline-flex items-center rounded border border-secondary/20 bg-secondary/20 px-2 py-1 text-xs font-medium text-secondary">
-                        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-                        Yayında
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded border border-outline-variant bg-surface-variant px-2 py-1 text-xs font-medium text-on-surface-variant">
-                        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-                        Taslak
-                      </span>
-                    )}
+                    <BlogPostStatusToggleButton id={post.id} isPublished={post.isPublished} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/blog/${post.id}`}
-                      className="inline-flex items-center gap-1 rounded p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
-                      title="Görüntüle"
-                    >
-                      <Icon name="visibility" className="text-[20px]" />
-                    </Link>
+                    <div className="inline-flex items-center gap-1">
+                      <Link
+                        href={`/admin/blog/${post.id}`}
+                        className="inline-flex items-center gap-1 rounded p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+                        title="Görüntüle"
+                      >
+                        <Icon name="visibility" className="text-[20px]" />
+                      </Link>
+                      <BlogPostEditButton post={post} />
+                      <BlogPostDeleteButton id={post.id} title={post.title} />
+                    </div>
                   </td>
                 </tr>
               ))}

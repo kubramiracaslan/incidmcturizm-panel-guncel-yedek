@@ -22,6 +22,7 @@ import type {
   TourFilters,
 } from "@/lib/types";
 import type {
+  BlogPostInput,
   CreatePartnerInput,
   DataRepository,
   ServiceInput,
@@ -34,6 +35,7 @@ import { MockDataRepository } from "./mock-repository";
 import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
+import { generateSlug } from "@/lib/validation/tour";
 
 const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status";
 
@@ -152,16 +154,42 @@ function mapBlogPostRow(row: SupabaseBlogPostRow): BlogPost {
     excerpt: row.excerpt ?? "",
     categoryName: row.category_name ?? "",
     heroImage: blogImageUrl(row.hero_image),
+    heroImagePath: row.hero_image ?? "",
     publishedAt: row.published_at ?? "",
     readTime: row.read_time ?? 0,
     authorName: row.author_name ?? "",
     authorTitle: row.author_title ?? "",
     authorImage: row.author_image ? blogImageUrl(row.author_image) : null,
+    authorImagePath: row.author_image ?? "",
     tags: (row.tags ?? []).map((t) => t.name),
     contentHtml: (row.content_sections ?? []).map((s) => s.content).join("\n"),
     isPublished: row.is_published ?? false,
     isFeatured: row.is_featured ?? false,
   };
+}
+
+const BLOG_POST_COLUMNS =
+  "id, slug, title, excerpt, category_name, hero_image, published_at, read_time, author_name, author_title, author_image, tags, content_sections, is_published, is_featured";
+
+/** Splits a `blogImageUrl()`-style stored path ("bucket/rest/of/path") into its bucket and path parts. */
+function splitBlogImagePath(pathWithBucket: string): { bucket: string; path: string } | null {
+  const [bucket, ...rest] = pathWithBucket.split("/");
+  const path = rest.join("/");
+  if (!bucket || !path) return null;
+  return { bucket, path };
+}
+
+/** Best-effort deletes `previousPath` from storage if it was replaced by a new upload (not still referenced by `keptPaths`). */
+async function removeBlogImageIfReplaced(
+  client: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  previousPath: string | null,
+  keptPaths: string[],
+): Promise<void> {
+  if (!previousPath || keptPaths.includes(previousPath)) return;
+  const parsed = splitBlogImagePath(previousPath);
+  if (!parsed) return;
+  const { error } = await client.storage.from(parsed.bucket).remove([parsed.path]);
+  if (error) console.error("[updateBlogPost] eski görsel silinemedi:", error);
 }
 
 interface SupabaseLogoSettingsRow {
@@ -466,12 +494,10 @@ export class SupabaseDataRepository implements DataRepository {
   async listBlogPosts(): Promise<BlogPost[]> {
     const { data, error } = await supabase
       .from("blog_posts")
-      .select(
-        "id, slug, title, excerpt, category_name, hero_image, published_at, read_time, author_name, author_title, author_image, tags, is_published, is_featured",
-      )
+      .select(BLOG_POST_COLUMNS)
       .order("published_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => mapBlogPostRow({ ...row, content_sections: [] } as SupabaseBlogPostRow));
+    return (data ?? []).map((row) => mapBlogPostRow(row as SupabaseBlogPostRow));
   }
 
   async getBlogPostById(id: string): Promise<BlogPost | null> {
@@ -485,6 +511,105 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
     if (!data) return null;
     return mapBlogPostRow(data as SupabaseBlogPostRow);
+  }
+
+  /**
+   * Builds a blog_posts row (excluding id) from the app-level input.
+   * `category_slug` is a NOT NULL column that no read query selects and no
+   * form field exposes — confirmed against live TEST data (Adım 0) — so it's
+   * derived silently from `categoryName` rather than surfaced to the admin.
+   */
+  private blogPostPayload(input: BlogPostInput) {
+    return {
+      slug: input.slug,
+      title: input.title,
+      excerpt: input.excerpt,
+      category_name: input.categoryName,
+      category_slug: generateSlug(input.categoryName),
+      hero_image: input.heroImagePath,
+      published_at: new Date(input.publishedAt).toISOString(),
+      read_time: input.readTime,
+      author_name: input.authorName,
+      author_title: input.authorTitle,
+      author_image: input.authorImagePath,
+      tags: input.tags.map((name) => ({ name })),
+      content_sections: [{ type: "paragraph", content: input.content }],
+      is_featured: input.isFeatured,
+    };
+  }
+
+  async createBlogPost(input: BlogPostInput): Promise<BlogPost> {
+    const client = await createSupabaseServerClient();
+
+    const { data, error } = await client
+      .from("blog_posts")
+      .insert({ ...this.blogPostPayload(input), is_published: false })
+      .select(BLOG_POST_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    return mapBlogPostRow(data as SupabaseBlogPostRow);
+  }
+
+  /**
+   * Updates a blog post's fields by id. When a hero/author image path
+   * changed, the previous file is deleted from storage once the row update
+   * succeeds — same best-effort cleanup as `updateService`, adapted for
+   * `blogImageUrl()`'s bucket-prefixed path convention.
+   */
+  async updateBlogPost(id: string, input: BlogPostInput): Promise<BlogPost> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("blog_posts")
+      .select("hero_image, author_image")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+    const previous = existing as { hero_image: string | null; author_image: string | null };
+
+    const { data, error } = await client
+      .from("blog_posts")
+      .update(this.blogPostPayload(input))
+      .eq("id", id)
+      .select(BLOG_POST_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    for (const previousPath of [previous.hero_image, previous.author_image]) {
+      await removeBlogImageIfReplaced(client, previousPath, [input.heroImagePath, input.authorImagePath]);
+    }
+
+    return mapBlogPostRow(data as SupabaseBlogPostRow);
+  }
+
+  /** Deletes a blog post and, best-effort, its hero/author image files from storage. */
+  async deleteBlogPost(id: string): Promise<void> {
+    const client = await createSupabaseServerClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("blog_posts")
+      .select("hero_image, author_image")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+
+    const { error } = await client.from("blog_posts").delete().eq("id", id);
+    if (error) throw error;
+
+    const previous = existing as { hero_image: string | null; author_image: string | null };
+    for (const path of [previous.hero_image, previous.author_image]) {
+      const parsed = path ? splitBlogImagePath(path) : null;
+      if (!parsed) continue;
+      const { error: removeError } = await client.storage.from(parsed.bucket).remove([parsed.path]);
+      if (removeError) console.error("[deleteBlogPost] görsel silinemedi:", removeError);
+    }
+  }
+
+  async updateBlogPostStatus(id: string, isPublished: boolean): Promise<void> {
+    const client = await createSupabaseServerClient();
+    const { error } = await client.from("blog_posts").update({ is_published: isPublished }).eq("id", id);
+    if (error) throw error;
   }
 
   async getHomePageOverview(): Promise<HomePageOverview> {

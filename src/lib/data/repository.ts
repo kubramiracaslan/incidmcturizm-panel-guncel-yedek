@@ -55,6 +55,22 @@ export interface StatInput {
   iconSvg: string;
 }
 
+export interface BlogPostInput {
+  title: string;
+  slug: string;
+  excerpt: string;
+  categoryName: string;
+  heroImagePath: string;
+  publishedAt: string;
+  readTime: number;
+  authorName: string;
+  authorTitle: string;
+  authorImagePath: string;
+  tags: string[];
+  content: string;
+  isFeatured: boolean;
+}
+
 /**
  * Single contract every screen talks to for tours, requests and agencies.
  *
@@ -71,6 +87,10 @@ export interface DataRepository {
 
   listBlogPosts(): Promise<BlogPost[]>;
   getBlogPostById(id: string): Promise<BlogPost | null>;
+  createBlogPost(input: BlogPostInput): Promise<BlogPost>;
+  updateBlogPost(id: string, input: BlogPostInput): Promise<BlogPost>;
+  deleteBlogPost(id: string): Promise<void>;
+  updateBlogPostStatus(id: string, isPublished: boolean): Promise<void>;
 
   getHomePageOverview(): Promise<HomePageOverview>;
   updateHomeLogo(input: UpdateHomeLogoInput): Promise<void>;

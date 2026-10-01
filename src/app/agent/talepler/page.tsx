@@ -9,6 +9,7 @@ import {
   RequestsFilterProvider,
   RequestsFilterToggleButton,
 } from "@/components/requests/RequestsFilterContext";
+import { Button } from "@/components/ui/Button";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data";
 import type { RequestStatus } from "@/lib/types";
@@ -38,6 +39,9 @@ export default async function AgentRequestsPage({ searchParams }: PageProps) {
             <>
               <RequestsFilterToggleButton />
               <RequestsExportButton />
+              <Button href="/agent/tur-katalogu" icon="add">
+                Yeni Talep Oluştur
+              </Button>
             </>
           }
         />

@@ -31,7 +31,6 @@ import type {
   UpdateHomeHeroInput,
   UpdateHomeLogoInput,
 } from "./repository";
-import { MockDataRepository } from "./mock-repository";
 import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
@@ -126,6 +125,87 @@ function mapTourRow(
     importantNotes: (extra?.notes ?? []).slice().sort(byOrder).map((n) => n.content),
     isPopular: row.popular_tour ?? false,
   };
+}
+
+const REQUEST_COLUMNS =
+  "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, status, notes, created_at";
+
+interface SupabaseRequestRow {
+  id: string;
+  tour_id: string;
+  agency_id: string;
+  adults: number;
+  children: number;
+  start_date: string;
+  nights: number;
+  amount: number;
+  currency: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+function mapRequestRow(
+  row: SupabaseRequestRow,
+  tour: { title: string; hero_image_path: string | null } | undefined,
+  agencyName: string | undefined,
+): TeklifTalebi {
+  return {
+    id: row.id,
+    tourId: row.tour_id,
+    tourName: tour?.title ?? "",
+    tourImage: tour ? tourImageUrl(tour.hero_image_path) : null,
+    agencyId: row.agency_id,
+    agencyName: agencyName ?? "",
+    adults: row.adults,
+    children: row.children,
+    startDate: row.start_date,
+    nights: row.nights,
+    amount: Number(row.amount),
+    currency: (CURRENCIES.has(row.currency) ? row.currency : "TRY") as TeklifTalebi["currency"],
+    status: row.status as RequestStatus,
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * `talepler` tur/acente adını kendi kolonunda tutmuyor — okuma sırasında
+ * `tours`/`acentalar`'dan join'leniyor (bkz. plan: isim/görsel sonradan
+ * değişirse talep ekranında güncel kalsın diye). Bir sayfalık sonucun
+ * arkasındaki tur/acente satırlarını N+1 yerine tek seferde toplu çekip
+ * bellekte eşleştiriyoruz.
+ */
+async function enrichRequestRows(
+  client: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  rows: SupabaseRequestRow[],
+): Promise<TeklifTalebi[]> {
+  if (rows.length === 0) return [];
+
+  const tourIds = Array.from(new Set(rows.map((row) => row.tour_id)));
+  const agencyIds = Array.from(new Set(rows.map((row) => row.agency_id)));
+
+  const [{ data: tourRows, error: tourError }, { data: agencyRows, error: agencyError }] =
+    await Promise.all([
+      client.from("tours").select("id, title, hero_image_path").in("id", tourIds),
+      client.from("acentalar").select("id, acenta_ismi").in("id", agencyIds),
+    ]);
+  if (tourError) throw tourError;
+  if (agencyError) throw agencyError;
+
+  const tourMap = new Map(
+    (tourRows ?? []).map((row) => [
+      row.id as string,
+      { title: row.title as string, hero_image_path: row.hero_image_path as string | null },
+    ]),
+  );
+  const agencyNameMap = new Map(
+    (agencyRows ?? []).map((row) => [row.id as string, row.acenta_ismi as string]),
+  );
+
+  return rows.map((row) =>
+    mapRequestRow(row, tourMap.get(row.tour_id), agencyNameMap.get(row.agency_id)),
+  );
 }
 
 interface SupabaseBlogPostRow {
@@ -313,15 +393,12 @@ const MAX_POPULAR_TOURS = 6;
 const MAX_STATS = 3;
 
 /**
- * Reads from the site's existing (adminpanel3) Supabase project. Only the
- * tables that project already has are touched, and only via SELECT — no
- * writes. Concepts this panel has of its own (agencies, quote requests) have
- * no counterpart in that schema, so those methods delegate to the in-memory
- * mock repository unchanged.
+ * Reads from the site's existing (adminpanel3) Supabase project for
+ * concepts that project already has (tours, content). Agencies and quote
+ * requests are concepts this panel introduced on its own — they live in
+ * `acentalar`/`talepler`, tables this panel's own migrations added.
  */
 export class SupabaseDataRepository implements DataRepository {
-  private mock = new MockDataRepository();
-
   async listTours(filters?: TourFilters): Promise<Tour[]> {
     let query = supabase
       .from("tours")
@@ -1076,20 +1153,109 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
   }
 
-  listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {
-    return this.mock.listRequests(filters);
+  async listRequests(filters?: RequestFilters): Promise<TeklifTalebi[]> {
+    const client = await createSupabaseServerClient();
+    let query = client
+      .from("talepler")
+      .select(REQUEST_COLUMNS)
+      .order("created_at", { ascending: false });
+
+    if (filters?.agencyId) query = query.eq("agency_id", filters.agencyId);
+    if (filters?.status) query = query.eq("status", filters.status);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    let results = await enrichRequestRows(client, (data ?? []) as SupabaseRequestRow[]);
+
+    if (filters?.search) {
+      const term = filters.search.toLowerCase();
+      results = results.filter(
+        (request) =>
+          request.id.toLowerCase().includes(term) ||
+          request.tourName.toLowerCase().includes(term) ||
+          request.agencyName.toLowerCase().includes(term),
+      );
+    }
+
+    return results;
   }
 
-  getRequestById(id: string): Promise<TeklifTalebi | null> {
-    return this.mock.getRequestById(id);
+  async getRequestById(id: string): Promise<TeklifTalebi | null> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("talepler")
+      .select(REQUEST_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const [mapped] = await enrichRequestRows(client, [data as SupabaseRequestRow]);
+    return mapped ?? null;
   }
 
-  createRequest(input: CreateRequestInput): Promise<TeklifTalebi> {
-    return this.mock.createRequest(input);
+  async createRequest(input: CreateRequestInput): Promise<TeklifTalebi> {
+    const client = await createSupabaseServerClient();
+
+    const { data: tourRow, error: tourError } = await client
+      .from("tours")
+      .select("id, title, hero_image_path, base_price, base_price_currency")
+      .eq("id", input.tourId)
+      .maybeSingle();
+    if (tourError) throw tourError;
+    if (!tourRow) throw new Error(`Tour not found: ${input.tourId}`);
+
+    const { data: agencyRow, error: agencyError } = await client
+      .from("acentalar")
+      .select("id, acenta_ismi")
+      .eq("id", input.agencyId)
+      .maybeSingle();
+    if (agencyError) throw agencyError;
+    if (!agencyRow) throw new Error(`Agency not found: ${input.agencyId}`);
+
+    const currency = (
+      CURRENCIES.has(tourRow.base_price_currency ?? "") ? tourRow.base_price_currency : "TRY"
+    ) as TeklifTalebi["currency"];
+    const amount = (tourRow.base_price ?? 0) * (input.adults + input.children);
+
+    const { data, error } = await client
+      .from("talepler")
+      .insert({
+        tour_id: input.tourId,
+        agency_id: input.agencyId,
+        adults: input.adults,
+        children: input.children,
+        start_date: input.startDate,
+        nights: input.nights,
+        amount,
+        currency,
+        notes: input.notes,
+      })
+      .select(REQUEST_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    return mapRequestRow(
+      data as SupabaseRequestRow,
+      { title: tourRow.title, hero_image_path: tourRow.hero_image_path },
+      agencyRow.acenta_ismi,
+    );
   }
 
-  updateRequestStatus(id: string, status: RequestStatus): Promise<TeklifTalebi> {
-    return this.mock.updateRequestStatus(id, status);
+  async updateRequestStatus(id: string, status: RequestStatus): Promise<TeklifTalebi> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("talepler")
+      .update({ status })
+      .eq("id", id)
+      .select(REQUEST_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    const [mapped] = await enrichRequestRows(client, [data as SupabaseRequestRow]);
+    if (!mapped) throw new Error(`Request not found: ${id}`);
+    return mapped;
   }
 
   async listAgencies(filters?: AgencyFilters): Promise<Agency[]> {
@@ -1149,7 +1315,13 @@ export class SupabaseDataRepository implements DataRepository {
     return mapAgencyRow(data as AcentalarRow);
   }
 
-  getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {
-    return this.mock.getDashboardStats(filters);
+  async getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {
+    const scoped = await this.listRequests(filters);
+    return {
+      totalRequests: scoped.length,
+      pendingRequests: scoped.filter((r) => r.status === "beklemede").length,
+      approvedTours: scoped.filter((r) => r.status === "onaylandi").length,
+      revisionRequests: scoped.filter((r) => r.status === "revize_istendi").length,
+    };
   }
 }

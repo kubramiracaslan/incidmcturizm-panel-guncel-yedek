@@ -9,6 +9,8 @@ import {
   validateAgencyProfileInput,
   type AgencyProfileFieldErrors,
 } from "@/lib/validation/agency";
+import { notifyAgencyOfRequestStatus } from "@/lib/email/notifyRequestStatus";
+import { reportApprovedRequestToOperationManagement } from "@/lib/integrations/operationManagement";
 
 export interface CreateRequestFormState {
   error: string | null;
@@ -126,7 +128,18 @@ export async function changeRequestStatusAction(
     throw new Error("Bu işlem için yönetici yetkisi gerekiyor.");
   }
 
-  await repository.updateRequestStatus(requestId, status);
+  const updated = await repository.updateRequestStatus(requestId, status);
+
+  const agency = await repository.getAgencyById(updated.agencyId);
+  if (agency) {
+    void notifyAgencyOfRequestStatus(updated, agency.email);
+    if (status === "onaylandi") {
+      void reportApprovedRequestToOperationManagement(updated, {
+        email: agency.email,
+        phone: agency.phone,
+      });
+    }
+  }
 
   revalidatePath("/admin/talepler");
   revalidatePath("/admin/dashboard");

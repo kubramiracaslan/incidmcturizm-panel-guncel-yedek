@@ -10,7 +10,7 @@ import {
   type AgencyProfileFieldErrors,
 } from "@/lib/validation/agency";
 import { notifyAgencyOfRequestStatus } from "@/lib/email/notifyRequestStatus";
-import { reportApprovedRequestToOperationManagement } from "@/lib/integrations/operationManagement";
+import { markPendingAndSyncToOperationManagement, retrySingleRequest } from "@/lib/integrations/omSync";
 
 export interface CreateRequestFormState {
   error: string | null;
@@ -134,7 +134,7 @@ export async function changeRequestStatusAction(
   if (agency) {
     void notifyAgencyOfRequestStatus(updated, agency.email);
     if (status === "onaylandi") {
-      void reportApprovedRequestToOperationManagement(updated, {
+      await markPendingAndSyncToOperationManagement(updated, {
         email: agency.email,
         phone: agency.phone,
       });
@@ -145,4 +145,16 @@ export async function changeRequestStatusAction(
   revalidatePath("/admin/dashboard");
   revalidatePath("/agent/talepler");
   revalidatePath("/agent/dashboard");
+}
+
+export async function retryOmSyncAction(requestId: string): Promise<void> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    throw new Error("Bu işlem için yönetici yetkisi gerekiyor.");
+  }
+
+  await retrySingleRequest(requestId);
+
+  revalidatePath("/admin/talepler");
+  revalidatePath("/admin/dashboard");
 }

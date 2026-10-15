@@ -7,21 +7,29 @@ interface AgencyContact {
   phone: string;
 }
 
+export type OmSyncOutcome =
+  | { ok: true }
+  // Timeout, DNS/bağlantı hatası veya env eksik — OM'nin kendisi kapalı/erişilemez kabul edilir.
+  | { ok: false; kind: "unreachable"; error: string }
+  // OM yanıt verdi ama bu isteği reddetti (4xx/5xx) — OM açık, sorun bu talebe özel.
+  | { ok: false; kind: "rejected"; error: string };
+
 function addNights(startDate: string, nights: number): string {
   const date = new Date(startDate);
   date.setDate(date.getDate() + nights);
   return date.toISOString().slice(0, 10);
 }
 
-export async function reportApprovedRequestToOperationManagement(
+export async function sendRequestToOperationManagement(
   request: TeklifTalebi,
   agency: AgencyContact,
-): Promise<void> {
+): Promise<OmSyncOutcome> {
   const baseUrl = process.env.OPERATION_MANAGEMENT_BASE_URL;
   const secret = process.env.OPERATION_MANAGEMENT_API_SECRET;
   if (!baseUrl || !secret) {
-    console.error(`[operationManagement] OPERATION_MANAGEMENT_BASE_URL/SECRET tanımlı değil, ${request.id} iletilemedi.`);
-    return;
+    const error = "OPERATION_MANAGEMENT_BASE_URL/SECRET tanımlı değil";
+    console.error(`[operationManagement] ${error}, ${request.id} iletilemedi.`);
+    return { ok: false, kind: "unreachable", error };
   }
 
   const controller = new AbortController();
@@ -48,10 +56,18 @@ export async function reportApprovedRequestToOperationManagement(
     });
 
     if (!response.ok) {
-      console.error(`[operationManagement] talep-onaylandi ${request.id} için ${response.status} döndü.`);
+      const error = `${response.status} döndü`;
+      console.error(`[operationManagement] talep-onaylandi ${request.id} için ${error}.`);
+      return { ok: false, kind: "rejected", error };
     }
+    return { ok: true };
   } catch (error) {
     console.error(`[operationManagement] ${request.id} OperationManagement'a iletilemedi:`, error);
+    return {
+      ok: false,
+      kind: "unreachable",
+      error: error instanceof Error ? error.message : String(error),
+    };
   } finally {
     clearTimeout(timeout);
   }

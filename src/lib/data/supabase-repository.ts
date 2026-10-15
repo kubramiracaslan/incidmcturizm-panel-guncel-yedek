@@ -12,6 +12,7 @@ import type {
   HomeMapSettings,
   HomePageOverview,
   MapLocation,
+  OmSyncStatus,
   Partner,
   RequestFilters,
   RequestStatus,
@@ -128,7 +129,7 @@ function mapTourRow(
 }
 
 const REQUEST_COLUMNS =
-  "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, status, notes, created_at";
+  "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, status, notes, created_at, om_sync_status, om_sync_attempts, om_sync_last_error, om_synced_at";
 
 interface SupabaseRequestRow {
   id: string;
@@ -143,6 +144,10 @@ interface SupabaseRequestRow {
   status: string;
   notes: string | null;
   created_at: string;
+  om_sync_status: string | null;
+  om_sync_attempts: number | null;
+  om_sync_last_error: string | null;
+  om_synced_at: string | null;
 }
 
 function mapRequestRow(
@@ -166,6 +171,10 @@ function mapRequestRow(
     status: row.status as RequestStatus,
     notes: row.notes ?? "",
     createdAt: row.created_at,
+    omSyncStatus: (row.om_sync_status as OmSyncStatus | null) ?? null,
+    omSyncAttempts: row.om_sync_attempts ?? 0,
+    omSyncLastError: row.om_sync_last_error ?? null,
+    omSyncedAt: row.om_synced_at ?? null,
   };
 }
 

@@ -223,6 +223,8 @@ export type RequestStatus =
   | "revize_istendi"
   | "reddedildi";
 
+export type OmSyncStatus = "pending" | "sent" | "failed";
+
 export interface TeklifTalebi {
   id: string; // e.g. "TLP-8492"
   tourId: string;
@@ -239,6 +241,11 @@ export interface TeklifTalebi {
   status: RequestStatus;
   notes: string;
   createdAt: string; // ISO datetime
+  /** Sadece status "onaylandi" olduğunda anlamlıdır; diğer durumlarda null/undefined. */
+  omSyncStatus?: OmSyncStatus | null;
+  omSyncAttempts?: number;
+  omSyncLastError?: string | null;
+  omSyncedAt?: string | null;
 }
 
 export interface CreateRequestInput {

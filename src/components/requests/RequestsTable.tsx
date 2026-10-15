@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { RequestStatus, TeklifTalebi } from "@/lib/types";
 import { formatMoney, requestStatusLabels } from "@/lib/format";
+import { OmSyncRetryButton } from "./OmSyncRetryButton";
 import { RequestActionsMenu } from "./RequestActionsMenu";
 import { useRequestsFilterVisibility } from "./RequestsFilterContext";
 
@@ -321,6 +322,18 @@ export function RequestsTable({
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={request.status} />
+                  {interactive &&
+                    request.status === "onaylandi" &&
+                    (request.omSyncStatus === "pending" || request.omSyncStatus === "failed") && (
+                      <div className="mt-1.5 flex flex-col items-start gap-1">
+                        <span className="text-[11px] text-warning">
+                          {request.omSyncStatus === "failed"
+                            ? "Operasyon sistemine gönderilemedi"
+                            : "Operasyon sistemine henüz gönderilmedi"}
+                        </span>
+                        <OmSyncRetryButton requestId={request.id} />
+                      </div>
+                    )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {interactive ? (

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSession, resolveAuthUser, type AuthResolutionFailureReason } from "./session";
 import {
   validateAgencyRegistrationInput,
@@ -120,7 +121,19 @@ export async function signUpAction(formData: FormData): Promise<SignUpFormState>
     return { error: message, fieldErrors: {}, success: false };
   }
 
-  const { error: insertError } = await supabase.from("acentalar").insert({
+  // Confirm-email açıkken, zaten kayıtlı bir e-postayla signUp() çağrıldığında
+  // Supabase hata döndürmez — enumeration'ı önlemek için gerçek olmayan bir
+  // "user" nesnesi döner, ama `identities` boş/eksik kalır. Bu durumda yeni
+  // bir kullanıcı/identity oluşmadığından acentalar'a satır eklenmemeli.
+  if (!data.user.identities || data.user.identities.length === 0) {
+    return { error: "Bu e-posta adresi zaten kayıtlı.", fieldErrors: {}, success: false };
+  }
+
+  // RLS'in acentalar INSERT politikasına güvenmemek için service_role ile
+  // yazılıyor — status/user_id gibi alanların kullanıcı tarafından
+  // değiştirilemeyeceğini sunucu kodu garanti eder, RLS değil.
+  const admin = await createSupabaseAdminClient();
+  const { error: insertError } = await admin.from("acentalar").insert({
     user_id: data.user.id,
     acenta_ismi: validation.value.acentaIsmi,
     isim: validation.value.firstName,

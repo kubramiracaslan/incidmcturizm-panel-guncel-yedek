@@ -101,6 +101,10 @@
     children: number;
     start_date: string;
     nights: number;
+    amount: number;
+    currency: string;
+    notes: string | null;
+    created_at: string;
     om_sync_attempts: number | null;
   }
 
@@ -123,7 +127,9 @@
 
     const { data: rows, error } = await client
       .from("talepler")
-      .select("id, tour_id, agency_id, adults, children, start_date, nights, om_sync_attempts")
+      .select(
+        "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, notes, created_at, om_sync_attempts",
+      )
       .eq("status", "onaylandi")
       .eq("om_sync_status", "pending")
       .order("created_at", { ascending: true })
@@ -141,8 +147,16 @@
       client.from("tours").select("id, title").in("id", tourIds),
       client.from("acentalar").select("id, acenta_ismi, email, telefon").in("id", agencyIds),
     ]);
-    if (tourError) console.error("[omSync] tours sorgusu başarısız:", tourError);
-    if (agencyError) console.error("[omSync] acentalar sorgusu başarısız:", agencyError);
+    // Bu iki sorgu başarısız olursa `tourRows`/`agencyRows` eksik/boş döner —
+    // aşağıdaki "satır bulunamadı" mantığı buna bakarak her talebi hatalı
+    // şekilde 'failed' işaretlerdi. Sorgu hatası geçici bir altyapı sorunu
+    // olabilir (talepler gerçekte var olabilir), bu yüzden hiçbir satıra
+    // dokunmadan batch'i güvenle durduruyoruz — talepler 'pending' kalıp bir
+    // sonraki cron çalışmasında yeniden denenir.
+    if (tourError || agencyError) {
+      console.error("[omSync] tours/acentalar sorgusu başarısız, batch güvenle durduruldu:", tourError ?? agencyError);
+      return { processed: 0, sent: 0, failed: 0, stoppedEarly: true };
+    }
 
     const tourNameById = new Map((tourRows ?? []).map((t) => [t.id as string, (t.title as string) ?? ""]));
     const agencyById = new Map(
@@ -160,16 +174,31 @@
     let failedCount = 0;
     let stoppedEarly = false;
 
+    /** Tur veya acente sorgusu başarıyla dönmüş ama bu id'ye karşılık gelen
+     * bir satır yoksa, bu geçici değil kalıcı bir veri sorunudur — yeniden
+     * denemek düzeltmez. 'pending' bırakıp sonsuza kadar denemek yerine
+     * doğrudan 'failed' işaretlenir, neden `om_sync_last_error`'a yazılır. */
+    async function markUnresolvable(requestId: string, reason: string): Promise<void> {
+      console.error(`[omSync] ${requestId} işlenemedi: ${reason}`);
+      const { error: markError } = await client
+        .from("talepler")
+        .update({ om_sync_status: "failed", om_sync_last_error: reason })
+        .eq("id", requestId);
+      if (markError) console.error(`[omSync] ${requestId} 'failed' olarak işaretlenemedi:`, markError);
+    }
+
     for (const row of pendingRows) {
       const agency = agencyById.get(row.agency_id);
       if (!agency) {
-        console.error(`[omSync] ${row.id} için acente bulunamadı (agency_id=${row.agency_id}), atlandı.`);
+        await markUnresolvable(row.id, `Acente bulunamadı (agency_id=${row.agency_id})`);
+        failedCount++;
         continue;
       }
 
       const tourName = tourNameById.get(row.tour_id);
-      if (!tourName) {
-        console.error(`[omSync] ${row.id} için tur adı bulunamadı, gönderilmeden pending bırakıldı.`);
+      if (tourName === undefined) {
+        await markUnresolvable(row.id, `Tur bulunamadı (tour_id=${row.tour_id})`);
+        failedCount++;
         continue;
       }
 
@@ -184,11 +213,11 @@
         children: row.children,
         startDate: row.start_date,
         nights: row.nights,
-        amount: 0,
-        currency: "TRY",
+        amount: Number(row.amount) || 0,
+        currency: row.currency as TeklifTalebi["currency"],
         status: "onaylandi",
-        notes: "",
-        createdAt: "",
+        notes: row.notes ?? "",
+        createdAt: row.created_at,
       };
 
       const outcome = await sendRequestToOperationManagement(request, agency);

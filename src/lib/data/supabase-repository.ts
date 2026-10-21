@@ -5,6 +5,7 @@ import type {
   BlogPost,
   CreateRequestInput,
   CreateTourInput,
+  Currency,
   DashboardStats,
   FeaturedSectionSettings,
   HomeHeroSettings,
@@ -215,6 +216,52 @@ async function enrichRequestRows(
   return rows.map((row) =>
     mapRequestRow(row, tourMap.get(row.tour_id), agencyNameMap.get(row.agency_id)),
   );
+}
+
+interface ApprovedRevenueRow {
+  id: string;
+  amount: number;
+  currency: string;
+}
+
+/**
+ * `listRequests` has no `.range()`, so it's capped at the project's
+ * PostgREST `db.max_rows` default — fine for the UI table, but a revenue
+ * total built on top of it would silently under-count once `talepler`
+ * grows past that cap. This fetches amount/currency for approved requests
+ * on its own, paging through with `.range()` until a page comes back
+ * short, so the total always covers every row regardless of that cap.
+ * `.order("id")` keeps row order stable across pages — without it,
+ * Postgres is free to return rows in a different order on each page
+ * request, which can skip or repeat rows under `.range()`.
+ */
+async function fetchApprovedRevenueRows(
+  client: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  filters?: RequestFilters,
+): Promise<ApprovedRevenueRow[]> {
+  const PAGE_SIZE = 1000;
+  const rows: ApprovedRevenueRow[] = [];
+  let from = 0;
+
+  while (true) {
+    let query = client
+      .from("talepler")
+      .select("id, amount, currency")
+      .eq("status", "onaylandi")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (filters?.agencyId) query = query.eq("agency_id", filters.agencyId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const batch = (data ?? []) as ApprovedRevenueRow[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 interface SupabaseBlogPostRow {
@@ -1326,11 +1373,33 @@ export class SupabaseDataRepository implements DataRepository {
 
   async getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {
     const scoped = await this.listRequests(filters);
+    const client = await createSupabaseServerClient();
+    const revenueRows = await fetchApprovedRevenueRows(client, filters);
+    const revenueByCurrency = revenueRows.reduce<{ currency: Currency; amount: number }[]>(
+      (acc, row) => {
+        if (!CURRENCIES.has(row.currency)) {
+          console.error(
+            `[getDashboardStats] Tanınmayan para birimi "${row.currency}" (talep id=${row.id}, amount=${row.amount}) - toplamdan hariç tutuldu.`,
+          );
+          return acc;
+        }
+        const currency = row.currency as Currency;
+        const existing = acc.find((entry) => entry.currency === currency);
+        if (existing) {
+          existing.amount += Number(row.amount);
+        } else {
+          acc.push({ currency, amount: Number(row.amount) });
+        }
+        return acc;
+      },
+      [],
+    );
     return {
       totalRequests: scoped.length,
       pendingRequests: scoped.filter((r) => r.status === "beklemede").length,
       approvedTours: scoped.filter((r) => r.status === "onaylandi").length,
       revisionRequests: scoped.filter((r) => r.status === "revize_istendi").length,
+      revenueByCurrency,
     };
   }
 }

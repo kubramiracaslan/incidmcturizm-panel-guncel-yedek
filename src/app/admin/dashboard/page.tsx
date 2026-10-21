@@ -7,6 +7,10 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data";
 import { buildActivityFeed } from "@/lib/activity";
+import { formatMoney } from "@/lib/format";
+import type { Currency } from "@/lib/types";
+
+const CURRENCY_ORDER: Currency[] = ["TRY", "USD", "EUR", "GBP"];
 
 const todayLabel = new Intl.DateTimeFormat("tr-TR", {
   day: "numeric",
@@ -27,6 +31,15 @@ export default async function AdminDashboardPage() {
   const activeRequests = stats.pendingRequests + stats.revisionRequests;
   const activity = buildActivityFeed(requests);
   const featuredTours = tours.slice(0, 2);
+  const revenueLabel =
+    stats.revenueByCurrency.length > 0
+      ? CURRENCY_ORDER.map((currency) =>
+          stats.revenueByCurrency.find((entry) => entry.currency === currency),
+        )
+          .filter((entry): entry is { currency: Currency; amount: number } => entry !== undefined)
+          .map((entry) => formatMoney(entry.amount, entry.currency))
+          .join(" + ")
+      : formatMoney(0, "TRY");
 
   return (
     <AdminShell title="Dashboard">
@@ -62,10 +75,12 @@ export default async function AdminDashboardPage() {
             label="Onaylanan Turlar"
             value={stats.approvedTours}
           />
-          <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-variant p-5 text-center">
-            <div className="mb-2 h-8 w-24 rounded bg-on-surface-variant/10 blur-sm" />
-            <p className="text-xs text-on-surface-variant/70">TOPLAM CİRO</p>
-          </div>
+          <StatCard
+            icon="payments"
+            label="Toplam Ciro"
+            value={revenueLabel}
+            hint="Onaylanan taleplerin toplamı"
+          />
         </div>
 
         <div className="flex flex-col gap-6 md:col-span-8">

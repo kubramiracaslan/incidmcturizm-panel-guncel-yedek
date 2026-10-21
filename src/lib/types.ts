@@ -293,6 +293,7 @@ export interface DashboardStats {
   pendingRequests: number;
   approvedTours: number;
   revisionRequests: number;
+  revenueByCurrency: { currency: Currency; amount: number }[];
 }
 
 export interface RequestFilters {

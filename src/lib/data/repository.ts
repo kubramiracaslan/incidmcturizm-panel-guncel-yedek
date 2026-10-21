@@ -74,11 +74,10 @@ export interface BlogPostInput {
 /**
  * Single contract every screen talks to for tours, requests and agencies.
  *
- * Today `MockDataRepository` (mock-repository.ts) is the only
- * implementation, backed by static in-memory arrays. When the site's
- * developer hands over the production database, implement this same
- * interface against that API/DB (e.g. `ApiDataRepository`) and swap the
- * export in `lib/data/index.ts` — no page or component needs to change.
+ * `SupabaseDataRepository` (supabase-repository.ts) is the only
+ * implementation, wired up in `lib/data/index.ts`. A new backend would
+ * implement this same interface and swap that export — no page or
+ * component needs to change.
  */
 export interface DataRepository {
   listTours(filters?: TourFilters): Promise<Tour[]>;

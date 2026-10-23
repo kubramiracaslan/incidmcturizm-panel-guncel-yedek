@@ -16,19 +16,11 @@ function defaultsForRole(role: UserRole): Record<string, boolean> {
   return role === "admin" ? ADMIN_PREFERENCE_DEFAULTS : AGENT_PREFERENCE_DEFAULTS;
 }
 
-/** Sunucu tarafında bir yazmanın kabul edilebilir anahtarlarını sınırlamak için. */
 export function allowedPreferenceKeys(role: UserRole): string[] {
   return Object.keys(defaultsForRole(role));
 }
 
-/**
- * Tablo henüz oluşturulmamışsa veya sorgu başka bir sebeple hata verirse
- * sayfa açılmayı reddetmek yerine rolün sabit varsayılanlarına düşer —
- * bildirim tercihleri kritik bir akış değil, en kötü ihtimalle eski
- * (hep varsayılan) davranışa geri döner. Artık geçerli olmayan bir anahtar
- * (örn. kaldırılan "sms_bildirimleri" için eski bir satır) varsa, rolün
- * güncel varsayılan setinde olmadığından sessizce yok sayılır.
- */
+// Tablo yoksa veya sorgu hata verirse varsayılanlarla devam eder.
 export async function getNotificationPreferences(
   userId: string,
   role: UserRole,

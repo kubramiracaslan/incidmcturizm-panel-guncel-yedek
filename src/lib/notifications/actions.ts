@@ -18,9 +18,7 @@ export async function updateNotificationPreferenceAction(
     return { error: "Oturum bulunamadı." };
   }
 
-  // `key`/`value` gelir Server Action'a istemciden, tarayıcı konsolundan da
-  // tetiklenebilir — TS tipi burada bir garanti değil, ikisi de çalışma
-  // zamanında doğrulanıyor.
+  // Server Action tarayıcıdan da çağrılabilir; TS tipi garanti değil, çalışma zamanında doğrulanıyor.
   if (!allowedPreferenceKeys(user.role).includes(key)) {
     return { error: "Geçersiz tercih anahtarı." };
   }

@@ -9,8 +9,6 @@ interface NotificationToggleSwitchProps {
   label: string;
 }
 
-/** Görünümü `ui/ToggleSwitch`'le aynı; farkı kendi anahtarını sunucuya
- * optimistic olarak kaydetmesi (hata olursa eski değere dönmesi). */
 export function NotificationToggleSwitch({
   prefKey,
   initialEnabled,

@@ -86,6 +86,7 @@ export async function resolveAuthUser(
         agencyId: null,
         agencyName: null,
         avatarUrl,
+        phone: (supabaseUser.user_metadata?.phone as string | undefined) ?? "",
       },
     };
   }

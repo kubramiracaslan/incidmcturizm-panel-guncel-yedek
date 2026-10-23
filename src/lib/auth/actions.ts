@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSession, resolveAuthUser, type AuthResolutionFailureReason } from "./session";
@@ -10,6 +11,7 @@ import {
   type AgencyRegistrationFieldErrors,
   type AgencyRegistrationInput,
 } from "@/lib/validation/agency-registration";
+import { validateAdminProfileInput, type AdminProfileFieldErrors } from "@/lib/validation/profile";
 import { validateNewPassword, validatePasswordsMatch } from "@/lib/validation/password";
 
 const LOGIN_ERROR_MESSAGES: Record<AuthResolutionFailureReason, string> = {
@@ -226,5 +228,51 @@ export async function changePasswordAction(formData: FormData): Promise<ChangePa
     };
   }
 
+  return { error: null, fieldErrors: {}, success: true };
+}
+
+export interface UpdateOwnProfileFormState {
+  error: string | null;
+  fieldErrors: AdminProfileFieldErrors;
+  success: boolean;
+}
+
+// Rol app_metadata'dan geliyor; diğer user_metadata anahtarları silinmesin diye mevcutla birleştirilip yazılıyor.
+export async function updateOwnProfileAction(formData: FormData): Promise<UpdateOwnProfileFormState> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor.", fieldErrors: {}, success: false };
+  }
+
+  const validation = validateAdminProfileInput({
+    fullName: String(formData.get("fullName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+  });
+  if (!validation.valid) {
+    return { error: "Lütfen formu kontrol edin.", fieldErrors: validation.fieldErrors, success: false };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: currentUser, error: getUserError } = await supabase.auth.getUser();
+  if (getUserError || !currentUser.user) {
+    return { error: "Bu işlem için giriş yapmanız gerekiyor.", fieldErrors: {}, success: false };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    data: {
+      ...currentUser.user.user_metadata,
+      full_name: validation.value.fullName,
+      phone: validation.value.phone,
+    },
+  });
+  if (updateError) {
+    return {
+      error: "Profil güncellenirken bir hata oluştu. Lütfen tekrar deneyin.",
+      fieldErrors: {},
+      success: false,
+    };
+  }
+
+  revalidatePath("/admin/ayarlar");
   return { error: null, fieldErrors: {}, success: true };
 }

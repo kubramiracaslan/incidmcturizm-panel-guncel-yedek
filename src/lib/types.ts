@@ -1,11 +1,4 @@
-/**
- * Domain types shared by the mock data layer today and the real
- * database-backed layer once the site developer hands over the
- * production backend. Pages and components depend only on these types
- * and on the `DataRepository` interface (see `lib/data/repository.ts`),
- * never on the mock data shape directly — that is what lets the data
- * source be swapped later without touching UI code.
- */
+/** DataRepository (lib/data/repository.ts) arayüzünün kullandığı alan tipleri. */
 
 export type Currency = "TRY" | "USD" | "EUR" | "GBP";
 
@@ -286,6 +279,8 @@ export interface AuthUser {
   agencyId: string | null;
   agencyName: string | null;
   avatarUrl: string;
+  /** Admin telefonu, user_metadata.phone. */
+  phone?: string;
 }
 
 export interface DashboardStats {

@@ -2,6 +2,8 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { NotificationToggleSwitch } from "@/components/notifications/NotificationToggleSwitch";
+import { ProfileForm } from "@/components/admin/ProfileForm";
+import { ChangePasswordForm } from "@/components/agent/ChangePasswordForm";
 import { getSession } from "@/lib/auth/session";
 import { ADMIN_PREFERENCE_DEFAULTS, getNotificationPreferences } from "@/lib/notifications/preferences";
 
@@ -34,9 +36,19 @@ export default async function AdminSettingsPage() {
 
   return (
     <AdminShell title="Ayarlar">
-      <PageHeader title="Ayarlar" description="Bildirim tercihlerinizi yönetin" />
+      <PageHeader title="Ayarlar" description="Hesap ve bildirim tercihlerinizi yönetin" />
 
-      <div className="rounded-xl border border-white/10 bg-primary-container p-6">
+      <ProfileForm
+        initialFullName={user?.name ?? ""}
+        initialPhone={user?.phone ?? ""}
+        email={user?.email ?? ""}
+      />
+
+      <div className="mt-6">
+        <ChangePasswordForm />
+      </div>
+
+      <div className="mt-6 rounded-xl border border-white/10 bg-primary-container p-6">
         <h3 className="mb-6 text-headline-sm font-headline-sm font-bold text-on-surface">
           Bildirim Tercihleri
         </h3>

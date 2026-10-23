@@ -9,6 +9,7 @@
  * set and must not change.
  */
 
+import { isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js/max";
 import { AGENCY_EMAIL_PATTERN } from "./agency";
 
 export type AgencyGender = "erkek" | "kadin";
@@ -61,8 +62,22 @@ export function validateAgencyRegistrationInput(
   } else if (!AGENCY_EMAIL_PATTERN.test(value.email)) {
     fieldErrors.email = "Lütfen geçerli bir e-posta adresi girin.";
   }
-  if (!value.phone) fieldErrors.phone = "Telefon zorunludur.";
-  if (!value.mobilePhone) fieldErrors.mobilePhone = "Cep telefonu zorunludur.";
+  if (!value.phone) {
+    fieldErrors.phone = "Telefon zorunludur.";
+  } else if (!isValidPhoneNumber(value.phone)) {
+    fieldErrors.phone = "Geçerli bir telefon numarası girin.";
+  } else {
+    value.phone = parsePhoneNumber(value.phone).number;
+  }
+  if (!value.mobilePhone) {
+    fieldErrors.mobilePhone = "Cep telefonu zorunludur.";
+  } else if (!isValidPhoneNumber(value.mobilePhone)) {
+    fieldErrors.mobilePhone = "Geçerli bir telefon numarası girin.";
+  } else if (parsePhoneNumber(value.mobilePhone).getType() === "FIXED_LINE") {
+    fieldErrors.mobilePhone = "Cep telefonu alanına sabit hat girilemez.";
+  } else {
+    value.mobilePhone = parsePhoneNumber(value.mobilePhone).number;
+  }
   if (!value.country) fieldErrors.country = "Ülke zorunludur.";
   if (!value.city) fieldErrors.city = "Şehir zorunludur.";
   if (!value.address) fieldErrors.address = "Adres zorunludur.";

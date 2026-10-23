@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { CountryCitySelect } from "@/components/forms/CountryCitySelect";
 import { signUpAction, type SignUpFieldErrors } from "@/lib/auth/actions";
 import {
@@ -229,22 +230,26 @@ export default function KayitPage() {
               onChange={handleChange}
             />
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field
-                label="Telefon"
+            <div>
+              <label className="mb-1.5 block text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant">
+                Sabit Hat
+              </label>
+              <PhoneInput
                 name="phone"
-                type="tel"
                 value={values.phone}
                 error={fieldErrors.phone}
-                onChange={handleChange}
+                onChange={(e164) => handleChange("phone", e164)}
               />
-              <Field
-                label="Cep Telefonu"
+            </div>
+            <div>
+              <label className="mb-1.5 block text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant">
+                Cep Telefonu
+              </label>
+              <PhoneInput
                 name="mobilePhone"
-                type="tel"
                 value={values.mobilePhone}
                 error={fieldErrors.mobilePhone}
-                onChange={handleChange}
+                onChange={(e164) => handleChange("mobilePhone", e164)}
               />
             </div>
 

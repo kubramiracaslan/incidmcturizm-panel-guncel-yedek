@@ -41,6 +41,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { generateSlug } from "@/lib/validation/tour";
+import { normalizeForSearch } from "@/lib/format";
 
 const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status, can_view_prices";
 
@@ -145,7 +146,7 @@ function mapTourRow(
 }
 
 const REQUEST_COLUMNS =
-  "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, status, notes, created_at, om_sync_status, om_sync_attempts, om_sync_last_error, om_synced_at";
+  "id, tour_id, agency_id, adults, children, start_date, nights, amount, currency, status, notes, created_at, status_changed_at, om_sync_status, om_sync_attempts, om_sync_last_error, om_synced_at";
 
 interface SupabaseRequestRow {
   id: string;
@@ -160,6 +161,11 @@ interface SupabaseRequestRow {
   status: string;
   notes: string | null;
   created_at: string;
+  /** `supabase/migrations/0003_talepler_status_changed_at.sql` — null for
+   * rows created before that migration, or for a row whose status has
+   * never changed since. Falls back to `created_at` for display (see
+   * `lib/activity.ts`). */
+  status_changed_at: string | null;
   om_sync_status: string | null;
   om_sync_attempts: number | null;
   om_sync_last_error: string | null;
@@ -187,6 +193,7 @@ function mapRequestRow(
     status: row.status as RequestStatus,
     notes: row.notes ?? "",
     createdAt: row.created_at,
+    statusChangedAt: row.status_changed_at ?? null,
     omSyncStatus: (row.om_sync_status as OmSyncStatus | null) ?? null,
     omSyncAttempts: row.om_sync_attempts ?? 0,
     omSyncLastError: row.om_sync_last_error ?? null,
@@ -481,16 +488,26 @@ export class SupabaseDataRepository implements DataRepository {
     if (filters?.region) {
       query = query.eq("region", filters.region);
     }
-    if (filters?.search) {
-      const term = filters.search.trim();
-      if (term) {
-        query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%`);
-      }
-    }
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map((row) => mapTourRow(row as SupabaseTourRow));
+    let rows = (data ?? []) as SupabaseTourRow[];
+
+    if (filters?.search) {
+      const term = normalizeForSearch(filters.search.trim());
+      if (term) {
+        // Matched in JS, not via Postgres `ilike`: `ilike`'s case-folding
+        // depends on the database's collation and gets the Turkish
+        // İ/I/ı/i problem wrong, so a plain-ASCII search could miss
+        // accented Turkish matches. Also covers `short_description`,
+        // which the old `ilike` version didn't.
+        rows = rows.filter((row) =>
+          normalizeForSearch(`${row.title} ${row.region} ${row.short_description ?? ""}`).includes(term),
+        );
+      }
+    }
+
+    return rows.map((row) => mapTourRow(row));
   }
 
   async getTourById(id: string): Promise<Tour | null> {
@@ -687,6 +704,7 @@ export class SupabaseDataRepository implements DataRepository {
       { data: dailyPrograms, error: dailyProgramsError },
       { data: datesPrices, error: datesPricesError },
       { data: weatherData, error: weatherDataError },
+      groupPrices,
     ] = await Promise.all([
       supabase.from("tour_highlights").select("content, content_en, display_order").eq("tour_id", id).order("display_order"),
       supabase.from("tour_inclusions").select("content, content_en, display_order").eq("tour_id", id).order("display_order"),
@@ -698,6 +716,11 @@ export class SupabaseDataRepository implements DataRepository {
         .eq("tour_id", id)
         .order("display_order"),
       supabase.from("tour_weather_data").select("month, temperature, rainfall, is_best_period").eq("tour_id", id),
+      // Was a separate `await` after this block — ran sequentially even
+      // though it doesn't depend on any of these results. Folded into the
+      // same Promise.all since it's the single slowest query here (RLS
+      // policy does a correlated `acentalar` lookup).
+      this.getTourGroupPrices(id),
     ]);
     if (highlightsError) throw highlightsError;
     if (inclusionsError) throw inclusionsError;
@@ -705,8 +728,6 @@ export class SupabaseDataRepository implements DataRepository {
     if (dailyProgramsError) throw dailyProgramsError;
     if (datesPricesError) throw datesPricesError;
     if (weatherDataError) throw weatherDataError;
-
-    const groupPrices = await this.getTourGroupPrices(id);
 
     const currency = (
       CURRENCIES.has(tourRow.base_price_currency ?? "") ? tourRow.base_price_currency : "TRY"
@@ -1686,7 +1707,7 @@ export class SupabaseDataRepository implements DataRepository {
     const client = await createSupabaseServerClient();
     const { data, error } = await client
       .from("talepler")
-      .update({ status })
+      .update({ status, status_changed_at: new Date().toISOString() })
       .eq("id", id)
       .select(REQUEST_COLUMNS)
       .single();

@@ -11,6 +11,7 @@ import {
 } from "@/lib/validation/agency";
 import { notifyAgencyOfRequestStatus } from "@/lib/email/notifyRequestStatus";
 import { markPendingAndSyncToOperationManagement, retrySingleRequest } from "@/lib/integrations/omSync";
+import { validateRequestStartDate } from "@/lib/validation/request";
 
 export interface CreateRequestFormState {
   error: string | null;
@@ -27,7 +28,6 @@ export async function createRequestAction(
   }
 
   const startDate = String(formData.get("startDate") ?? "");
-  const nights = Number(formData.get("nights") ?? 0);
   const adults = Number(formData.get("adults") ?? 1);
   const children = Number(formData.get("children") ?? 0);
   const notes = String(formData.get("notes") ?? "");
@@ -35,8 +35,17 @@ export async function createRequestAction(
   if (!startDate) {
     return { error: "Lütfen planlanan başlangıç tarihini seçin." };
   }
+  const dateValidation = validateRequestStartDate(startDate);
+  if (!dateValidation.valid) {
+    return { error: dateValidation.error };
+  }
   if (adults < 1) {
     return { error: "En az 1 yetişkin olmalıdır." };
+  }
+
+  const tour = await repository.getTourById(tourId);
+  if (!tour) {
+    return { error: "Tur bulunamadı." };
   }
 
   const created = await repository.createRequest({
@@ -45,7 +54,7 @@ export async function createRequestAction(
     adults,
     children,
     startDate,
-    nights,
+    nights: tour.nights,
     notes,
   });
 

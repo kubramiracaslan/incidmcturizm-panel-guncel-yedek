@@ -6,7 +6,7 @@ import { TourDetailSummary } from "@/components/tours/TourDetailSummary";
 import { TourInfoCard } from "@/components/tours/TourInfoCard";
 import { GroupPriceTable } from "@/components/tours/GroupPriceTable";
 import { TourProgramCard } from "@/components/tours/TourProgramCard";
-import { RequestForm } from "@/components/requests/RequestForm";
+import { RequestFormModal } from "@/components/requests/RequestFormModal";
 import { repository } from "@/lib/data";
 
 interface PageProps {
@@ -22,23 +22,24 @@ export default async function AgentTourDetailPage({ params }: PageProps) {
   const groupPrices = editData?.groupPrices ?? [];
 
   return (
-    <AgentShell title="Teklif İste">
-      <div className="mb-8">
-        <Link
-          href="/agent/tur-katalogu"
-          className="mb-4 inline-flex items-center text-body-md text-on-surface-variant transition-colors hover:text-secondary"
-        >
-          <Icon name="arrow_back" className="mr-1 text-sm" />
-          Turlara Dön
-        </Link>
-        <h1 className="mb-2 text-display-lg font-display-lg text-on-surface">Teklif İste</h1>
-        <p className="text-body-lg font-body-lg text-on-surface-variant">
-          Müşteriniz için {tour.name} turuna özel bir teklif talebi oluşturun.
-        </p>
+    <AgentShell title="Tur Kataloğu">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link
+            href="/agent/tur-katalogu"
+            className="mb-4 inline-flex items-center text-body-md text-on-surface-variant transition-colors hover:text-secondary"
+          >
+            <Icon name="arrow_back" className="mr-1 text-sm" />
+            Turlara Dön
+          </Link>
+          <h1 className="mb-2 text-display-lg font-display-lg text-on-surface">{tour.name}</h1>
+          <p className="text-body-lg font-body-lg text-on-surface-variant">
+            {tour.summary || "Tur detaylarını inceleyin ve talep oluşturun."}
+          </p>
+        </div>
+        <RequestFormModal tour={tour} />
       </div>
 
-      {/* Bkz. admin tur detay sayfasındaki aynı desenin yorumu — iki
-         bağımsız sütun, mobilde `contents` + `order-*` ile tek sütuna iner. */}
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div className="contents lg:flex lg:basis-0 lg:grow-[5] lg:flex-col lg:gap-6">
           <div className="order-1">
@@ -81,16 +82,20 @@ export default async function AgentTourDetailPage({ params }: PageProps) {
             <TourProgramCard days={dailyPrograms} />
           </div>
 
-          {groupPrices.length > 0 && (
-            <div className="order-3">
+          <div className="order-3">
+            {groupPrices.length > 0 ? (
               <GroupPriceTable rows={groupPrices} />
-            </div>
-          )}
+            ) : (
+              <div className="rounded-xl border border-outline-variant bg-primary-container p-6">
+                <h3 className="mb-2 text-headline-sm font-headline-sm font-bold text-on-surface">Grup Fiyatları</h3>
+                <p className="text-sm text-on-surface-variant">
+                  Bu tur için grup fiyatları henüz yayınlanmadı. Fiyat bilgisi için bizimle iletişime
+                  geçebilirsiniz.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-
-      <div className="mt-8">
-        <RequestForm tour={tour} cancelHref="/agent/tur-katalogu" />
       </div>
     </AgentShell>
   );

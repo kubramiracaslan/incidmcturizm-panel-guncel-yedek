@@ -20,15 +20,11 @@ export default async function AdminTourCatalogPage({ searchParams }: PageProps) 
         description="Acentelerin gördüğü katalog görünümü"
         actions={<NewTourForm />}
       />
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <TourFilters basePath="/admin/tur-katalogu" resultCount={tours.length} />
-        <div className="flex-1">
-          <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
-            {tours.map((tour) => (
-              <TourCard key={tour.id} tour={tour} basePath="/admin/tur-katalogu" />
-            ))}
-          </div>
-        </div>
+      <TourFilters basePath="/admin/tur-katalogu" resultCount={tours.length} />
+      <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
+        {tours.map((tour) => (
+          <TourCard key={tour.id} tour={tour} basePath="/admin/tur-katalogu" />
+        ))}
       </div>
     </AdminShell>
   );

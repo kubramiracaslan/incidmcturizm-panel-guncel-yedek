@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient, User as SupabaseAuthUser } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AuthUser, UserRole } from "@/lib/types";
@@ -26,10 +27,10 @@ function initialsAvatarDataUri(name: string): string {
 async function loadAgencyProfile(
   supabase: SupabaseClient,
   userId: string,
-): Promise<{ id: string; name: string; status: string } | null> {
+): Promise<{ id: string; name: string; displayName: string; status: string } | null> {
   const { data, error } = await supabase
     .from("acentalar")
-    .select("id, acenta_ismi, status")
+    .select("id, acenta_ismi, isim, soyisim, status")
     .eq("user_id", userId)
     .maybeSingle();
   // Log rather than swallow: a permission/RLS misconfiguration should show
@@ -38,7 +39,13 @@ async function loadAgencyProfile(
   if (error) {
     console.error("[loadAgencyProfile] Supabase error for user_id=%s:", userId, error);
   }
-  return data ? { id: data.id, name: data.acenta_ismi, status: data.status } : null;
+  if (!data) return null;
+  // Welcome-banner name: acenta_ismi, else isim+soyisim, else (caller falls
+  // back to email) — never the Supabase Auth `user_metadata.full_name` an
+  // admin's name uses, since agents never set that field.
+  const fullContactName = [data.isim, data.soyisim].filter(Boolean).join(" ").trim();
+  const displayName = data.acenta_ismi?.trim() || fullContactName;
+  return { id: data.id, name: data.acenta_ismi, displayName, status: data.status };
 }
 
 export type AuthResolutionFailureReason = "no-role" | "no-agency" | "pending" | "rejected";
@@ -96,24 +103,38 @@ export async function resolveAuthUser(
   if (agency.status === "pending") return { user: null, reason: "pending" };
   if (agency.status === "rejected") return { user: null, reason: "rejected" };
 
+  // acenta_ismi → isim+soyisim → e-posta. Deliberately not the generic
+  // `name` computed above (user_metadata.full_name) — agents never set
+  // that field, so using it here would just show the email anyway.
+  const agentDisplayName = agency.displayName || supabaseUser.email || "Kullanıcı";
+
   return {
     user: {
       id: supabaseUser.id,
-      name,
+      name: agentDisplayName,
       email: supabaseUser.email ?? "",
       role: "agent" as UserRole,
       agencyId: agency.id,
       agencyName: agency.name,
-      avatarUrl,
+      avatarUrl: (supabaseUser.user_metadata?.avatar_url as string | undefined) || initialsAvatarDataUri(agentDisplayName),
     },
   };
 }
 
-/** Reads the current Supabase Auth session and resolves it to a user, or null. */
-export async function getSession(): Promise<AuthUser | null> {
+/**
+ * Reads the current Supabase Auth session and resolves it to a user, or
+ * null. `cache()`-wrapped: every `*Shell` component calls this, and most
+ * pages call it a second time themselves for the same request (to read
+ * `agencyId`/`role` without re-importing the shell's resolved user) — both
+ * `supabase.auth.getUser()` (a real network round-trip, not a local JWT
+ * decode) and, for agents, the `acentalar` lookup in `resolveAuthUser`
+ * would otherwise run twice per request. `cache()` scopes to a single
+ * render pass, so this has no effect across different requests.
+ */
+export const getSession = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
   const resolution = await resolveAuthUser(supabase, data.user);
   return resolution.user;
-}
+});

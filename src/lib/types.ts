@@ -332,6 +332,11 @@ export interface TeklifTalebi {
   status: RequestStatus;
   notes: string;
   createdAt: string; // ISO datetime
+  /** `talepler.status_changed_at` — en son durum değişikliğinin zamanı.
+   * `updateRequestStatus` her çağrıldığında güncellenir; migration'dan önce
+   * oluşmuş veya durumu hiç değişmemiş satırlarda null olabilir (bu durumda
+   * görüntüleme `createdAt`'a geri döner, bkz. `lib/activity.ts`). */
+  statusChangedAt?: string | null;
   /** Sadece status "onaylandi" olduğunda anlamlıdır; diğer durumlarda null/undefined. */
   omSyncStatus?: OmSyncStatus | null;
   omSyncAttempts?: number;

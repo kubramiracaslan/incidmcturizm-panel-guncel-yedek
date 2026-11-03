@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { createRequestAction, type CreateRequestFormState } from "@/lib/data/actions";
+import { getRequestDateBounds } from "@/lib/validation/request";
 import type { Tour } from "@/lib/types";
 
 const initialState: CreateRequestFormState = { error: null };
@@ -56,23 +57,25 @@ function PassengerCounter({
   );
 }
 
-export function RequestForm({ tour, cancelHref }: { tour: Tour; cancelHref: string }) {
+interface RequestFormProps {
+  tour: Tour;
+  /** Plain navigation cancel — ignored when `onCancel` is also passed. */
+  cancelHref?: string;
+  /** Used instead of `cancelHref` when the form is shown inside a modal
+   * (closes the modal rather than navigating away). */
+  onCancel?: () => void;
+}
+
+export function RequestForm({ tour, cancelHref, onCancel }: RequestFormProps) {
+  // `onCancel` (modal usage) always wins and never renders a `<Link>`.
+  // Otherwise fall back to `cancelHref`, defaulting to the tour catalog so
+  // `<Link href>` is never undefined regardless of how this is called.
+  const effectiveCancelHref = cancelHref ?? "/agent/tur-katalogu";
+  const dateBounds = getRequestDateBounds();
   const boundAction = createRequestAction.bind(null, tour.id);
   const [state, formAction, isPending] = useActionState(boundAction, initialState);
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
-
-  const durationOptions = [
-    { nights: tour.nights, label: `${tour.nights} Gece / ${tour.nights + 1} Gün (Standart)` },
-    {
-      nights: tour.nights + 3,
-      label: `${tour.nights + 3} Gece / ${tour.nights + 4} Gün (Uzatılmış)`,
-    },
-    {
-      nights: tour.nights + 5,
-      label: `${tour.nights + 5} Gece / ${tour.nights + 6} Gün (Kapsamlı)`,
-    },
-  ];
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-outline-variant bg-primary-container p-8">
@@ -96,39 +99,20 @@ export function RequestForm({ tour, cancelHref }: { tour: Tour; cancelHref: stri
               name="startDate"
               type="date"
               required
+              min={dateBounds.min}
+              max={dateBounds.max}
               className="w-full rounded-lg border border-outline-variant bg-surface-deep py-3 pl-10 pr-4 text-body-lg text-on-surface transition-all focus:border-mint-glow focus:outline-none focus:ring-1 focus:ring-mint-glow [color-scheme:dark]"
             />
           </div>
         </div>
 
         <div>
-          <label
-            htmlFor="nights"
-            className="mb-2 block text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant"
-          >
-            Gün Sayısı
-          </label>
-          <div className="relative">
-            <Icon
-              name="schedule"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-            />
-            <select
-              id="nights"
-              name="nights"
-              defaultValue={durationOptions[0].nights}
-              className="w-full appearance-none rounded-lg border border-outline-variant bg-surface-deep py-3 pl-10 pr-10 text-body-lg text-on-surface transition-all focus:border-mint-glow focus:outline-none focus:ring-1 focus:ring-mint-glow"
-            >
-              {durationOptions.map((option) => (
-                <option key={option.nights} value={option.nights}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Icon
-              name="expand_more"
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-            />
+          <span className="mb-2 block text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant">
+            Tur Süresi
+          </span>
+          <div className="flex items-center gap-3 rounded-lg border border-outline-variant bg-surface-deep px-4 py-3 text-body-lg text-on-surface">
+            <Icon name="schedule" className="text-on-surface-variant" />
+            Tur süresi: {tour.nights} Gece / {tour.days} Gün
           </div>
         </div>
 
@@ -169,9 +153,12 @@ export function RequestForm({ tour, cancelHref }: { tour: Tour; cancelHref: stri
             id="notes"
             name="notes"
             rows={4}
-            placeholder="Oda tipi tercihi, özel yemek gereksinimi veya ek hizmet taleplerini buraya yazabilirsiniz..."
+            placeholder="Tur süresinde veya programda değişiklik talebiniz, oda tipi tercihi, özel yemek gereksinimi gibi notlarınızı buraya yazabilirsiniz."
             className="w-full resize-none rounded-lg border border-outline-variant bg-surface-deep p-4 text-body-md text-on-surface transition-all placeholder:text-on-surface-variant/50 focus:border-mint-glow focus:outline-none focus:ring-1 focus:ring-mint-glow"
           />
+          <p className="mt-2 text-label-sm font-label-sm text-on-surface-variant">
+            Süre değişikliği taleplerinde size özel bir program hazırlanır.
+          </p>
         </div>
 
         {state.error && (
@@ -181,12 +168,22 @@ export function RequestForm({ tour, cancelHref }: { tour: Tour; cancelHref: stri
         )}
 
         <div className="flex justify-end gap-4 border-t border-outline-variant/30 pt-4">
-          <Link
-            href={cancelHref}
-            className="rounded-lg border border-mint-glow/50 px-6 py-3 text-body-md font-semibold text-secondary transition-colors hover:bg-mint-glow/10"
-          >
-            İptal
-          </Link>
+          {onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-mint-glow/50 px-6 py-3 text-body-md font-semibold text-secondary transition-colors hover:bg-mint-glow/10"
+            >
+              İptal
+            </button>
+          ) : (
+            <Link
+              href={effectiveCancelHref}
+              className="rounded-lg border border-mint-glow/50 px-6 py-3 text-body-md font-semibold text-secondary transition-colors hover:bg-mint-glow/10"
+            >
+              İptal
+            </Link>
+          )}
           <button
             type="submit"
             disabled={isPending}

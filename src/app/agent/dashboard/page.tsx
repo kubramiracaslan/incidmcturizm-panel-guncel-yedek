@@ -27,7 +27,8 @@ export default async function AgentDashboardPage() {
   ]);
 
   const activity = buildActivityFeed(requests);
-  const featuredTours = tours.slice(0, 2);
+  const popularTours = tours.filter((tour) => tour.isPopular).slice(0, 4);
+  const featuredTours = popularTours.length > 0 ? popularTours : tours.slice(0, 2);
 
   return (
     <AgentShell title="Dashboard">
@@ -66,7 +67,7 @@ export default async function AgentDashboardPage() {
             <StatCard
               tone="highlight"
               icon="verified_user"
-              label="Onaylanan Turlarım"
+              label="Onaylanan Taleplerim"
               value={stats.approvedTours}
             />
           </div>

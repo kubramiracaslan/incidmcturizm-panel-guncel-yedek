@@ -175,7 +175,9 @@ function toTourInput(form: FormState) {
  * legacy extra column was loaded — see `deriveGroupPriceOrder`), not
  * re-parsed from the label here. `sortOrder` encodes `rowIndex * 100 +
  * colIndex` so re-opening the form reconstructs the same row/column order
- * (see `toGroupPricingFormState`). */
+ * (see `toGroupPricingFormState`). `currency` comes from the form's single,
+ * table-wide selector — every saved row gets the same currency, even if the
+ * previously saved data had mixed currencies per row. */
 function toGroupPriceCells(form: GroupPricingFormState) {
   const result: { rowLabel: string; groupLabel: string; minPax: number; price: number; currency: Currency; sortOrder: number }[] = [];
   form.rowLabels.forEach((rowLabel, rowIndex) => {
@@ -187,7 +189,7 @@ function toGroupPriceCells(form: GroupPricingFormState) {
         groupLabel: col.label,
         minPax: col.minPax,
         price: parsePriceInput(cell.price),
-        currency: cell.currency,
+        currency: form.currency,
         sortOrder: rowIndex * 100 + colIndex,
       });
     });

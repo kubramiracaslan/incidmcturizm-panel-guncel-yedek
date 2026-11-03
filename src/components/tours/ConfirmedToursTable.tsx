@@ -9,6 +9,9 @@ import { formatMoney } from "@/lib/format";
 interface ConfirmedToursTableProps {
   requests: TeklifTalebi[];
   showAgencyColumn?: boolean;
+  /** "Tutar" sütununun başlığı — admin'de "Tutar" (varsayılan), acente
+   * sayfasında "Tahmini Tutar" (bkz. `/agent/turlarim`'in geçtiği değer). */
+  amountColumnLabel?: string;
 }
 
 interface Filters {
@@ -47,6 +50,7 @@ const filterInputClass =
 export function ConfirmedToursTable({
   requests,
   showAgencyColumn = false,
+  amountColumnLabel = "Tutar",
 }: ConfirmedToursTableProps) {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
 
@@ -136,7 +140,7 @@ export function ConfirmedToursTable({
                 Tarih
               </th>
               <th className="px-4 py-3 text-center text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                Tutar
+                {amountColumnLabel}
               </th>
             </tr>
             <tr className="border-b border-white/10 bg-surface-deep/30">

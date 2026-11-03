@@ -30,7 +30,8 @@ export default async function AdminDashboardPage() {
 
   const activeRequests = stats.pendingRequests + stats.revisionRequests;
   const activity = buildActivityFeed(requests);
-  const featuredTours = tours.slice(0, 2);
+  const popularTours = tours.filter((tour) => tour.isPopular).slice(0, 4);
+  const featuredTours = popularTours.length > 0 ? popularTours : tours.slice(0, 2);
   const revenueLabel =
     stats.revenueByCurrency.length > 0
       ? CURRENCY_ORDER.map((currency) =>
@@ -72,14 +73,13 @@ export default async function AdminDashboardPage() {
           />
           <StatCard
             icon="verified_user"
-            label="Onaylanan Turlar"
+            label="Onaylanan Talepler"
             value={stats.approvedTours}
           />
           <StatCard
             icon="payments"
             label="Toplam Ciro"
             value={revenueLabel}
-            hint="Onaylanan taleplerin toplamı"
           />
         </div>
 

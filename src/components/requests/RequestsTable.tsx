@@ -13,6 +13,9 @@ import { useRequestsFilterVisibility } from "./RequestsFilterContext";
 interface RequestsTableProps {
   requests: TeklifTalebi[];
   showAgencyColumn?: boolean;
+  /** "Tutar" sütununun başlığı — admin'de "Tutar" (varsayılan), acente
+   * sayfasında "Tahmini Tutar" (bkz. `/agent/talepler`'in geçtiği değer). */
+  amountColumnLabel?: string;
   /** Admin can act on a request's status inline; agents can only view it. */
   interactive?: boolean;
 }
@@ -67,6 +70,7 @@ function hasActiveFilters(filters: Filters): boolean {
 export function RequestsTable({
   requests,
   showAgencyColumn = false,
+  amountColumnLabel = "Tutar",
   interactive = false,
 }: RequestsTableProps) {
   const { visible: filtersVisible, setExportData } = useRequestsFilterVisibility();
@@ -141,7 +145,7 @@ export function RequestsTable({
               Tarih
             </th>
             <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-              Tutar
+              {amountColumnLabel}
             </th>
             <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
               Durum

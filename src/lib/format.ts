@@ -18,6 +18,21 @@ export function formatMoney(amount: number, currency: Currency): string {
   return (formatters[currency] ?? formatters.TRY).format(amount);
 }
 
+const currencySymbols: Record<Currency, string> = {
+  TRY: "₺",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+};
+
+/** Sadece simge — para birimi seçimi tablo genelinde yapıldığı için her
+ * hücrenin yanında hangi birimde girildiğini göstermek amacıyla kullanılır
+ * (bkz. `GroupPricingTab`). Tutar biçimlendirmesi için `formatMoney`'e
+ * bakın. */
+export function currencySymbol(currency: Currency): string {
+  return currencySymbols[currency] ?? currency;
+}
+
 const TURKISH_FOLD: Record<string, string> = {
   İ: "i", I: "i", ı: "i", i: "i",
   Ş: "s", ş: "s",

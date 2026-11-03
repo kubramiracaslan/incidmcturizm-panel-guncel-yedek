@@ -1,9 +1,9 @@
 import type { Currency } from "@/lib/types";
 import { isValidPrice, parsePriceInput } from "@/lib/validation/tour";
+import { currencySymbol } from "@/lib/format";
 
 export interface GroupPriceCellValue {
   price: string;
-  currency: Currency;
 }
 
 export interface GroupPricingColumn {
@@ -19,8 +19,13 @@ export interface GroupPricingColumn {
  * labels outside the standard set; those are appended (read from
  * `toGroupPricingFormState`) so that data stays visible and editable
  * instead of silently disappearing.
+ *
+ * `currency` is a single, table-wide choice — every cell is saved with this
+ * same currency (see `toGroupPriceCells` in `TourFormModal.tsx`), there is
+ * no per-cell currency anymore.
  */
 export interface GroupPricingFormState {
+  currency: Currency;
   rowLabels: string[];
   columns: GroupPricingColumn[];
   cells: GroupPriceCellValue[][]; // cells[rowIndex][colIndex]
@@ -48,13 +53,14 @@ export const GROUP_PRICE_COLUMNS: GroupPricingColumn[] = [
   { label: "10+1", minPax: 10 },
 ];
 
-const CURRENCIES: Currency[] = ["TRY", "USD", "EUR", "GBP"];
+const CURRENCIES: Currency[] = ["EUR", "USD", "TRY", "GBP"];
 
 function emptyCell(): GroupPriceCellValue {
-  return { price: "", currency: "EUR" };
+  return { price: "" };
 }
 
 export const emptyGroupPricingForm: GroupPricingFormState = {
+  currency: "EUR",
   rowLabels: [...GROUP_PRICE_ROW_LABELS],
   columns: GROUP_PRICE_COLUMNS.map((c) => ({ ...c })),
   cells: GROUP_PRICE_ROW_LABELS.map(() => GROUP_PRICE_COLUMNS.map(() => emptyCell())),
@@ -98,6 +104,10 @@ export function deriveGroupPriceOrder(rows: { rowLabel: string; groupLabel: stri
   };
 }
 
+/** Mevcut kayıtlarda satır başına farklı para birimi olsa bile (eski
+ * veriler), tablo tek bir para birimine sahip gösterilir: ilk satırın
+ * para birimi seçili gelir, admin kaydedince tüm satırlar o birime döner
+ * (bkz. `toGroupPriceCells`, `TourFormModal.tsx`). */
 export function toGroupPricingFormState(
   rows: { rowLabel: string; groupLabel: string; price: number; currency: Currency }[],
 ): GroupPricingFormState {
@@ -107,11 +117,11 @@ export function toGroupPricingFormState(
   const cells: GroupPriceCellValue[][] = rowLabels.map((rowLabel) =>
     columns.map((col) => {
       const match = rows.find((r) => r.rowLabel === rowLabel && r.groupLabel === col.label);
-      return match ? { price: String(match.price), currency: match.currency } : emptyCell();
+      return match ? { price: String(match.price) } : emptyCell();
     }),
   );
 
-  return { rowLabels, columns, cells };
+  return { currency: rows[0].currency, rowLabels, columns, cells };
 }
 
 /** Returns the first cell whose price is non-empty but not a valid,
@@ -139,7 +149,8 @@ interface GroupPricingTabProps {
 }
 
 /** Editable "Grup Fiyatları" grid — headers are fixed (see module docs);
- * the admin only ever edits a cell's price/currency. */
+ * the admin only ever edits a cell's price. Currency is picked once for
+ * the whole table (see `value.currency`), not per cell. */
 export function GroupPricingTab({ value, onChange }: GroupPricingTabProps) {
   function updateCell(rowIndex: number, colIndex: number, patch: Partial<GroupPriceCellValue>) {
     const cells = value.cells.map((row, r) =>
@@ -156,6 +167,27 @@ export function GroupPricingTab({ value, onChange }: GroupPricingTabProps) {
           Bu tablo sadece admin ve onaylı (ve fiyat görmesine izin verilen) acentelere gösterilir. Sadece fiyat
           doldurun — boş bırakılan hücreler kaydedilmez.
         </p>
+      </div>
+
+      <div>
+        <label
+          htmlFor="groupPricingCurrency"
+          className="mb-1 block text-xs font-medium text-on-surface-variant"
+        >
+          Para Birimi
+        </label>
+        <select
+          id="groupPricingCurrency"
+          value={value.currency}
+          onChange={(e) => onChange({ ...value, currency: e.target.value as Currency })}
+          className="w-28 rounded-md border border-outline-variant bg-surface-container px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-mint-glow"
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-outline-variant">
@@ -179,24 +211,14 @@ export function GroupPricingTab({ value, onChange }: GroupPricingTabProps) {
                   return (
                     <td key={col.label} className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <span className="text-on-surface-variant">{currencySymbol(value.currency)}</span>
                         <input
                           type="number"
                           value={cell.price}
                           onChange={(e) => updateCell(rowIndex, colIndex, { price: e.target.value })}
                           placeholder="0"
-                          className={`${cellInputClass} w-16`}
+                          className={`${cellInputClass} w-20`}
                         />
-                        <select
-                          value={cell.currency}
-                          onChange={(e) => updateCell(rowIndex, colIndex, { currency: e.target.value as Currency })}
-                          className={cellInputClass}
-                        >
-                          {CURRENCIES.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     </td>
                   );
@@ -206,6 +228,7 @@ export function GroupPricingTab({ value, onChange }: GroupPricingTabProps) {
           </tbody>
         </table>
       </div>
+      <p className="text-xs text-on-surface-variant">Fiyatlar kişi başıdır.</p>
     </div>
   );
 }

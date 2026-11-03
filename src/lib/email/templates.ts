@@ -40,7 +40,7 @@ export function requestStatusEmail(request: TeklifTalebi): RequestStatusEmail {
           <tr><td style="padding: 4px 0; color: #666;">Tur</td><td style="padding: 4px 0; text-align: right;">${request.tourName}</td></tr>
           <tr><td style="padding: 4px 0; color: #666;">Başlangıç Tarihi</td><td style="padding: 4px 0; text-align: right;">${formatDate(request.startDate)}</td></tr>
           <tr><td style="padding: 4px 0; color: #666;">Kişi Sayısı</td><td style="padding: 4px 0; text-align: right;">${request.adults} yetişkin${request.children > 0 ? `, ${request.children} çocuk` : ""}</td></tr>
-          <tr><td style="padding: 4px 0; color: #666;">Tutar</td><td style="padding: 4px 0; text-align: right;">${formatMoney(request.amount, request.currency)}</td></tr>
+          <tr><td style="padding: 4px 0; color: #666;">Tahmini tutar</td><td style="padding: 4px 0; text-align: right;">${formatMoney(request.amount, request.currency)}</td></tr>
         </tbody>
       </table>
       <p style="margin-top: 24px; color: #666; font-size: 13px;">İnci DMC Turizm</p>

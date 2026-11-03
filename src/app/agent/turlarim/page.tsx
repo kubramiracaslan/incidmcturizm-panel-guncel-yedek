@@ -25,7 +25,7 @@ export default async function AgentConfirmedToursPage() {
       />
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
-        <ConfirmedToursTable requests={upcoming} />
+        <ConfirmedToursTable requests={upcoming} amountColumnLabel="Tahmini Tutar" />
       </div>
     </AgentShell>
   );

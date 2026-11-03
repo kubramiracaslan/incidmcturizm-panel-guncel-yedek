@@ -57,7 +57,7 @@ export default async function AgentRequestsPage({ searchParams }: PageProps) {
 
         <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
           <RequestStatusTabs basePath="/agent/talepler" activeStatus={status ?? ""} />
-          <RequestsTable requests={requests} />
+          <RequestsTable requests={requests} amountColumnLabel="Tahmini Tutar" />
         </div>
       </RequestsFilterProvider>
     </AgentShell>

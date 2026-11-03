@@ -6,6 +6,7 @@ import { AgencyStatusTabs } from "@/components/agencies/AgencyStatusTabs";
 import { AgencyActionsMenu } from "@/components/agencies/AgencyActionsMenu";
 import { AgencyEditButton } from "@/components/agencies/AgencyEditButton";
 import { AgencyCreateButton } from "@/components/agencies/AgencyCreateButton";
+import { AgencyPriceVisibilityToggle } from "@/components/agencies/AgencyPriceVisibilityToggle";
 import { repository } from "@/lib/data";
 import type { AgencyStatus } from "@/lib/types";
 
@@ -60,6 +61,9 @@ export default async function AdminAgenciesPage({ searchParams }: PageProps) {
                   <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
                     Durum
                   </th>
+                  <th className="px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Fiyatları Görebilir
+                  </th>
                   <th className="w-48 px-4 py-3 text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
                     Durumu Değiştir
                   </th>
@@ -89,6 +93,9 @@ export default async function AdminAgenciesPage({ searchParams }: PageProps) {
                       <td className="px-4 py-3 text-on-surface">{requestCount}</td>
                       <td className="px-4 py-3">
                         <AgencyStatusBadge status={agency.status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <AgencyPriceVisibilityToggle agencyId={agency.id} canViewPrices={agency.canViewPrices} />
                       </td>
                       <td className="w-48 px-4 py-3">
                         <AgencyActionsMenu

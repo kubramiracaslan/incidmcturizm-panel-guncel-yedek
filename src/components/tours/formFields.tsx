@@ -25,9 +25,12 @@ interface TextInputProps extends LabelProps {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  disabled?: boolean;
+  min?: string;
+  max?: string;
 }
 
-export function TextInput({ label, hint, error, value, onChange, placeholder, type = "text" }: TextInputProps) {
+export function TextInput({ label, hint, error, value, onChange, placeholder, type = "text", disabled, min, max }: TextInputProps) {
   return (
     <div>
       <FieldLabel label={label} hint={hint} />
@@ -36,7 +39,10 @@ export function TextInput({ label, hint, error, value, onChange, placeholder, ty
         value={value}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`${baseInputClass} ${error ? "border-error focus:border-error focus:ring-error/50" : ""}`}
+        disabled={disabled}
+        min={min}
+        max={max}
+        className={`${baseInputClass} ${error ? "border-error focus:border-error focus:ring-error/50" : ""} ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-error">{error}</p>}
     </div>

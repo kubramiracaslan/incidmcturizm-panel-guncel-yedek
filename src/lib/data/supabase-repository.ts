@@ -21,7 +21,10 @@ import type {
   SiteStat,
   TeklifTalebi,
   Tour,
+  TourEditData,
   TourFilters,
+  TourGroupPriceRow,
+  UpdateTourInput,
 } from "@/lib/types";
 import type {
   BlogPostInput,
@@ -35,10 +38,11 @@ import type {
 } from "./repository";
 import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { generateSlug } from "@/lib/validation/tour";
 
-const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status";
+const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status, can_view_prices";
 
 interface AcentalarRow {
   id: string;
@@ -48,6 +52,7 @@ interface AcentalarRow {
   email: string | null;
   telefon: string | null;
   status: string | null;
+  can_view_prices: boolean | null;
 }
 
 function mapAgencyRow(row: AcentalarRow): Agency {
@@ -60,6 +65,7 @@ function mapAgencyRow(row: AcentalarRow): Agency {
     email: row.email ?? "",
     phone: row.telefon ?? "",
     status: (row.status as AgencyStatus) ?? "pending",
+    canViewPrices: row.can_view_prices ?? true,
   };
 }
 
@@ -123,8 +129,17 @@ function mapTourRow(
       .sort(byOrder)
       .map((h) => ({ icon: "star", title: h.content, subtitle: "" })),
     includes: (extra?.includes ?? []).slice().sort(byOrder).map((i) => i.content),
-    excludes: [],
-    importantNotes: (extra?.notes ?? []).slice().sort(byOrder).map((n) => n.content),
+    // The live site renders `tour_tips` as the tour's "Dahil Olmayanlar"
+    // section (red-X icon, confirmed against inciyeni3's own
+    // TourDetailClient.tsx) — not a separate "important notes" concept.
+    // `tour_tips` has no other reader in this app, so this is its one and
+    // only real identity.
+    excludes: (extra?.notes ?? []).slice().sort(byOrder).map((n) => n.content),
+    // No table backs a distinct "Önemli Noktalar" concept — see the
+    // `excludes` comment above. Kept as an always-empty field (rather than
+    // removed) so the admin/agent "Önemli Noktalar" card can stay wired up
+    // without inventing storage that doesn't exist.
+    importantNotes: [],
     isPopular: row.popular_tour ?? false,
   };
 }
@@ -489,11 +504,22 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
     if (!tourRow) return null;
 
-    const [{ data: highlights }, { data: includes }, { data: tips }] = await Promise.all([
+    const [
+      { data: highlights, error: highlightsError },
+      { data: includes, error: includesError },
+      { data: tips, error: tipsError },
+    ] = await Promise.all([
       supabase.from("tour_highlights").select("content, display_order").eq("tour_id", id),
       supabase.from("tour_inclusions").select("content, display_order").eq("tour_id", id),
-      supabase.from("tour_tips").select("content, display_order").eq("tour_id", id),
+      // `tour_tips` has no `display_order` column (confirmed against the
+      // live schema) — selecting it here used to fail the whole query
+      // silently (the error was never checked, so `tips` quietly became
+      // `null`), which is why "Dahil Olmayanlar" always rendered empty.
+      supabase.from("tour_tips").select("content").eq("tour_id", id),
     ]);
+    if (highlightsError) throw highlightsError;
+    if (includesError) throw includesError;
+    if (tipsError) throw tipsError;
 
     return mapTourRow(tourRow as SupabaseTourRow, {
       highlights: (highlights ?? []) as SupabaseTourContentRow[],
@@ -504,12 +530,14 @@ export class SupabaseDataRepository implements DataRepository {
 
   /**
    * Writes a new tour and all of its child-table content in one go. Uses
-   * the authenticated (admin) server client — unlike most other methods on
-   * this class, which only ever read via the shared anon client — because
-   * this is a write path into the site's own `tours` schema.
+   * the service-role client (see `lib/supabase/admin.ts`) — unlike the read
+   * methods on this class, which only ever read via the shared anon client —
+   * because the live project only grants write access to `service_role` on
+   * this table; the admin-only check happens in `tour-actions.ts` before
+   * this method is ever called.
    */
   async createTour(input: CreateTourInput): Promise<{ id: string; slug: string }> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: tourRow, error: tourError } = await client
       .from("tours")
@@ -621,7 +649,362 @@ export class SupabaseDataRepository implements DataRepository {
       if (error) throw error;
     }
 
+    if (input.groupPrices.length > 0) {
+      const { error } = await client.from("tour_group_prices").insert(
+        input.groupPrices.map((g) => ({
+          tour_id: tourId,
+          row_label: g.rowLabel,
+          group_label: g.groupLabel,
+          min_pax: g.minPax,
+          price: g.price,
+          currency: g.currency,
+          sort_order: g.sortOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
     return { id: tourId, slug: tourRow.slug as string };
+  }
+
+  /** Full raw data for the "Turu Düzenle" form — read via the shared anon
+   * client, same as `getTourById`; only writes go through service_role. */
+  async getTourForEdit(id: string): Promise<TourEditData | null> {
+    const { data: tourRow, error } = await supabase
+      .from("tours")
+      .select(
+        "id, slug, title, title_en, region, duration, duration_en, base_price, base_price_currency, base_date_start, base_date_end, short_description, short_description_en, long_description, long_description_en, popular_tour, destination_status, opportunity_tour, hero_image_path, tours_map_image, tours_image_1, tours_image_2, tours_image_3",
+      )
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!tourRow) return null;
+
+    const [
+      { data: highlights, error: highlightsError },
+      { data: inclusions, error: inclusionsError },
+      { data: tips, error: tipsError },
+      { data: dailyPrograms, error: dailyProgramsError },
+      { data: datesPrices, error: datesPricesError },
+      { data: weatherData, error: weatherDataError },
+    ] = await Promise.all([
+      supabase.from("tour_highlights").select("content, content_en, display_order").eq("tour_id", id).order("display_order"),
+      supabase.from("tour_inclusions").select("content, content_en, display_order").eq("tour_id", id).order("display_order"),
+      supabase.from("tour_tips").select("content, content_en, icon_name").eq("tour_id", id),
+      supabase.from("tour_daily_programs").select("day_range, title, title_en, description, description_en").eq("tour_id", id),
+      supabase
+        .from("tour_dates_prices")
+        .select("travel_period, price_category, airline, price, currency, display_order")
+        .eq("tour_id", id)
+        .order("display_order"),
+      supabase.from("tour_weather_data").select("month, temperature, rainfall, is_best_period").eq("tour_id", id),
+    ]);
+    if (highlightsError) throw highlightsError;
+    if (inclusionsError) throw inclusionsError;
+    if (tipsError) throw tipsError;
+    if (dailyProgramsError) throw dailyProgramsError;
+    if (datesPricesError) throw datesPricesError;
+    if (weatherDataError) throw weatherDataError;
+
+    const groupPrices = await this.getTourGroupPrices(id);
+
+    const currency = (
+      CURRENCIES.has(tourRow.base_price_currency ?? "") ? tourRow.base_price_currency : "TRY"
+    ) as Tour["currency"];
+
+    return {
+      id: tourRow.id as string,
+      slug: tourRow.slug as string,
+      title: (tourRow.title as string) ?? "",
+      titleEn: (tourRow.title_en as string | null) ?? "",
+      region: (tourRow.region as string) ?? "",
+      duration: (tourRow.duration as string | null) ?? "",
+      durationEn: (tourRow.duration_en as string | null) ?? "",
+      basePrice: (tourRow.base_price as number | null) ?? 0,
+      basePriceCurrency: currency,
+      baseDateStart: (tourRow.base_date_start as string | null) ?? "",
+      baseDateEnd: (tourRow.base_date_end as string | null) ?? "",
+      shortDescription: (tourRow.short_description as string | null) ?? "",
+      shortDescriptionEn: (tourRow.short_description_en as string | null) ?? "",
+      longDescription: (tourRow.long_description as string | null) ?? "",
+      longDescriptionEn: (tourRow.long_description_en as string | null) ?? "",
+      popularTour: (tourRow.popular_tour as boolean | null) ?? false,
+      destinationStatus: (tourRow.destination_status as boolean | null) ?? false,
+      opportunityTour: (tourRow.opportunity_tour as boolean | null) ?? false,
+      heroImagePath: (tourRow.hero_image_path as string | null) ?? "",
+      heroImageUrl: tourImageUrl(tourRow.hero_image_path as string | null),
+      toursMapImage: (tourRow.tours_map_image as string | null) ?? "",
+      toursMapImageUrl: tourImageUrl(tourRow.tours_map_image as string | null),
+      toursImage1: (tourRow.tours_image_1 as string | null) ?? "",
+      toursImage1Url: tourImageUrl(tourRow.tours_image_1 as string | null),
+      toursImage2: (tourRow.tours_image_2 as string | null) ?? "",
+      toursImage2Url: tourImageUrl(tourRow.tours_image_2 as string | null),
+      toursImage3: (tourRow.tours_image_3 as string | null) ?? "",
+      toursImage3Url: tourImageUrl(tourRow.tours_image_3 as string | null),
+      highlights: (highlights ?? []).map((h) => ({ content: h.content as string, contentEn: (h.content_en as string | null) ?? "" })),
+      inclusions: (inclusions ?? []).map((i) => ({ content: i.content as string, contentEn: (i.content_en as string | null) ?? "" })),
+      tips: (tips ?? []).map((t) => ({
+        content: t.content as string,
+        contentEn: (t.content_en as string | null) ?? "",
+        iconName: (t.icon_name as string | null) ?? "",
+      })),
+      dailyPrograms: (dailyPrograms ?? []).map((p) => ({
+        dayRange: p.day_range as string,
+        title: p.title as string,
+        titleEn: (p.title_en as string | null) ?? "",
+        description: p.description as string,
+        descriptionEn: (p.description_en as string | null) ?? "",
+      })),
+      datesPrices: (datesPrices ?? []).map((p) => ({
+        travelPeriod: p.travel_period as string,
+        priceCategory: p.price_category as string,
+        airline: (p.airline as string | null) ?? "",
+        price: p.price as number,
+        currency: (CURRENCIES.has(p.currency as string) ? p.currency : "TRY") as Tour["currency"],
+      })),
+      weatherData: (weatherData ?? []).map((w) => ({
+        month: w.month as string,
+        temperature: (w.temperature as number | null) ?? 0,
+        rainfall: (w.rainfall as number | null) ?? 0,
+        isBestPeriod: (w.is_best_period as boolean | null) ?? false,
+      })),
+      groupPrices,
+    };
+  }
+
+  /**
+   * Grup fiyatları — `tour_group_prices`'ın RLS politikası SELECT'i admin
+   * ve onaylı acenteyle sınırlar, anon'a hiç grant yok. Bu yüzden bu metot
+   * (diğer okuma metotlarının çoğunun aksine) paylaşılan anon `supabase`
+   * client'ını değil, çağıranın kendi oturumuna bağlı
+   * `createSupabaseServerClient()`'ı kullanır — RLS, sorguyu gerçek
+   * çağıranın rolüne göre süzsün diye.
+   */
+  async getTourGroupPrices(tourId: string): Promise<TourGroupPriceRow[]> {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client
+      .from("tour_group_prices")
+      .select("id, row_label, group_label, min_pax, price, currency, sort_order")
+      .eq("tour_id", tourId)
+      .order("sort_order");
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      rowLabel: row.row_label as string,
+      groupLabel: row.group_label as string,
+      minPax: (row.min_pax as number | null) ?? 0,
+      price: row.price as number,
+      currency: (CURRENCIES.has(row.currency as string) ? row.currency : "TRY") as Tour["currency"],
+      sortOrder: (row.sort_order as number | null) ?? 0,
+    }));
+  }
+
+  /**
+   * Updates a tour's own columns and fully replaces its child-table rows
+   * (delete then reinsert) — same approach the old panel used. Slug is
+   * never part of the update payload (`UpdateTourInput` has no `slug`
+   * field), so it cannot change here even by accident. Image columns only
+   * change when a new path was actually uploaded this time; otherwise the
+   * existing stored path is kept (same convention as `updateService`).
+   */
+  async updateTour(id: string, input: UpdateTourInput): Promise<{ id: string; slug: string }> {
+    const client = await createSupabaseAdminClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("tours")
+      .select("slug, hero_image_path, tours_map_image, tours_image_1, tours_image_2, tours_image_3")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+
+    const { data: tourRow, error: tourError } = await client
+      .from("tours")
+      .update({
+        title: input.title,
+        title_en: input.titleEn || null,
+        region: input.region,
+        duration: input.duration,
+        duration_en: input.durationEn || null,
+        base_price: input.basePrice,
+        base_price_currency: input.basePriceCurrency,
+        base_date_start: input.baseDateStart || null,
+        base_date_end: input.baseDateEnd || null,
+        short_description: input.shortDescription,
+        short_description_en: input.shortDescriptionEn || null,
+        long_description: input.longDescription,
+        long_description_en: input.longDescriptionEn || null,
+        popular_tour: input.popularTour,
+        destination_status: input.destinationStatus,
+        opportunity_tour: input.opportunityTour,
+        hero_image_path: input.heroImagePath || existing.hero_image_path,
+        tours_map_image: input.toursMapImage || existing.tours_map_image,
+        tours_image_1: input.toursImage1 || existing.tours_image_1,
+        tours_image_2: input.toursImage2 || existing.tours_image_2,
+        tours_image_3: input.toursImage3 || existing.tours_image_3,
+      })
+      .eq("id", id)
+      .select("id, slug")
+      .single();
+    if (tourError) throw tourError;
+
+    const childTables = [
+      "tour_highlights",
+      "tour_inclusions",
+      "tour_tips",
+      "tour_daily_programs",
+      "tour_dates_prices",
+      "tour_weather_data",
+      "tour_group_prices",
+    ] as const;
+    for (const table of childTables) {
+      const { error } = await client.from(table).delete().eq("tour_id", id);
+      if (error) throw error;
+    }
+
+    if (input.highlights.length > 0) {
+      const { error } = await client.from("tour_highlights").insert(
+        input.highlights.map((h) => ({
+          tour_id: id,
+          content: h.content,
+          content_en: h.contentEn || null,
+          display_order: h.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.inclusions.length > 0) {
+      const { error } = await client.from("tour_inclusions").insert(
+        input.inclusions.map((i) => ({
+          tour_id: id,
+          content: i.content,
+          content_en: i.contentEn || null,
+          display_order: i.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.tips.length > 0) {
+      const { error } = await client.from("tour_tips").insert(
+        input.tips.map((t) => ({
+          tour_id: id,
+          content: t.content,
+          content_en: t.contentEn || null,
+          icon_name: t.iconName,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.dailyPrograms.length > 0) {
+      const { error } = await client.from("tour_daily_programs").insert(
+        input.dailyPrograms.map((p) => ({
+          tour_id: id,
+          day_range: p.dayRange,
+          title: p.title,
+          title_en: p.titleEn || null,
+          description: p.description,
+          description_en: p.descriptionEn || null,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.datesPrices.length > 0) {
+      const { error } = await client.from("tour_dates_prices").insert(
+        input.datesPrices.map((d) => ({
+          tour_id: id,
+          travel_period: d.travelPeriod,
+          price_category: d.priceCategory,
+          airline: d.airline,
+          price: d.price,
+          currency: d.currency,
+          display_order: d.displayOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.weatherData.length > 0) {
+      const { error } = await client.from("tour_weather_data").insert(
+        input.weatherData.map((w) => ({
+          tour_id: id,
+          month: w.month,
+          temperature: w.temperature,
+          rainfall: w.rainfall,
+          is_best_period: w.isBestPeriod,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    if (input.groupPrices.length > 0) {
+      const { error } = await client.from("tour_group_prices").insert(
+        input.groupPrices.map((g) => ({
+          tour_id: id,
+          row_label: g.rowLabel,
+          group_label: g.groupLabel,
+          min_pax: g.minPax,
+          price: g.price,
+          currency: g.currency,
+          sort_order: g.sortOrder,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    return { id, slug: (tourRow.slug as string) ?? (existing.slug as string) };
+  }
+
+  /**
+   * Deletes a tour and its child-table rows. Blocked up front — before
+   * touching anything — if any `talepler` row references this tour: a
+   * quote request pointing at a deleted tour would be unrecoverable, and
+   * relying on a possible DB-level FK constraint to surface that as a
+   * generic error isn't good enough, so this checks explicitly and throws
+   * a sentinel (`TOUR_HAS_REQUESTS`) that `deleteTourAction` turns into a
+   * clear Turkish message.
+   *
+   * Child deletes run explicitly (highlights/inclusions/tips/daily
+   * programs/dates-prices/weather/images) instead of relying on the
+   * database's own FK cascade rules, since those aren't defined anywhere in
+   * this repo and may not be set on every child table — explicit deletes
+   * are correct whether or not a DB-level cascade also exists.
+   * `tour_group_prices` is the one exception: its migration
+   * (`supabase/migrations/0001_tour_group_prices.sql`) defines
+   * `tour_id references tours(id) on delete cascade`, so the database
+   * removes those rows on its own once this method deletes the `tours` row.
+   */
+  async deleteTour(id: string): Promise<void> {
+    const client = await createSupabaseAdminClient();
+
+    const { count, error: requestCountError } = await client
+      .from("talepler")
+      .select("id", { count: "exact", head: true })
+      .eq("tour_id", id);
+    if (requestCountError) throw requestCountError;
+    if ((count ?? 0) > 0) {
+      throw new Error("TOUR_HAS_REQUESTS");
+    }
+
+    const childTables = [
+      "tour_highlights",
+      "tour_inclusions",
+      "tour_tips",
+      "tour_daily_programs",
+      "tour_dates_prices",
+      "tour_weather_data",
+      "tour_images",
+    ] as const;
+    for (const table of childTables) {
+      const { error } = await client.from(table).delete().eq("tour_id", id);
+      if (error) throw error;
+    }
+
+    const { error } = await client.from("tours").delete().eq("id", id);
+    if (error) throw error;
   }
 
   async listBlogPosts(): Promise<BlogPost[]> {
@@ -672,7 +1055,7 @@ export class SupabaseDataRepository implements DataRepository {
   }
 
   async createBlogPost(input: BlogPostInput): Promise<BlogPost> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data, error } = await client
       .from("blog_posts")
@@ -691,7 +1074,7 @@ export class SupabaseDataRepository implements DataRepository {
    * `blogImageUrl()`'s bucket-prefixed path convention.
    */
   async updateBlogPost(id: string, input: BlogPostInput): Promise<BlogPost> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("blog_posts")
@@ -718,7 +1101,7 @@ export class SupabaseDataRepository implements DataRepository {
 
   /** Deletes a blog post and, best-effort, its hero/author image files from storage. */
   async deleteBlogPost(id: string): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("blog_posts")
@@ -740,7 +1123,7 @@ export class SupabaseDataRepository implements DataRepository {
   }
 
   async updateBlogPostStatus(id: string, isPublished: boolean): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
     const { error } = await client.from("blog_posts").update({ is_published: isPublished }).eq("id", id);
     if (error) throw error;
   }
@@ -859,7 +1242,7 @@ export class SupabaseDataRepository implements DataRepository {
    * harmless while a broken logo reference isn't.
    */
   async updateHomeLogo(input: UpdateHomeLogoInput): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("logo_settings")
@@ -897,7 +1280,7 @@ export class SupabaseDataRepository implements DataRepository {
    * rather than cleared, so editing just the copy never blanks the banner.
    */
   async updateHomeHero(input: UpdateHomeHeroInput): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("hero_settings")
@@ -942,7 +1325,7 @@ export class SupabaseDataRepository implements DataRepository {
    * partners aren't part of this method — only creation is.
    */
   async createPartner(input: CreatePartnerInput): Promise<Partner> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: maxRows, error: maxError } = await client
       .from("partners")
@@ -977,7 +1360,7 @@ export class SupabaseDataRepository implements DataRepository {
    * second row to deactivate the way the old panel's multi-row scheme did.
    */
   async updateFeaturedSection(input: UpdateFeaturedSectionInput): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("featured_section_settings")
@@ -1011,7 +1394,7 @@ export class SupabaseDataRepository implements DataRepository {
    * distinguish that case by checking `error.message`.
    */
   async setTourPopular(tourId: string, isPopular: boolean): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     if (isPopular) {
       const { count, error: countError } = await client
@@ -1033,7 +1416,7 @@ export class SupabaseDataRepository implements DataRepository {
    * existing `display_order` + 1) — same pattern as `createPartner`.
    */
   async createService(input: ServiceInput): Promise<SiteService> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: maxRows, error: maxError } = await client
       .from("services")
@@ -1069,7 +1452,7 @@ export class SupabaseDataRepository implements DataRepository {
    * `updateHomeLogo`.
    */
   async updateService(id: string, input: ServiceInput): Promise<SiteService> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("services")
@@ -1104,7 +1487,7 @@ export class SupabaseDataRepository implements DataRepository {
 
   /** Deletes a service and, best-effort, its image file from storage. */
   async deleteService(id: string): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existing, error: selectError } = await client
       .from("services")
@@ -1124,7 +1507,7 @@ export class SupabaseDataRepository implements DataRepository {
   }
 
   async updateServiceStatus(id: string, isActive: boolean): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
     const { error } = await client.from("services").update({ is_active: isActive }).eq("id", id);
     if (error) throw error;
   }
@@ -1138,7 +1521,7 @@ export class SupabaseDataRepository implements DataRepository {
    * defaults when there are no stats yet.
    */
   async createStat(input: StatInput): Promise<SiteStat> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data: existingRows, error: existingError } = await client
       .from("stats")
@@ -1183,7 +1566,7 @@ export class SupabaseDataRepository implements DataRepository {
   }
 
   async updateStat(id: string, input: StatInput): Promise<SiteStat> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
 
     const { data, error } = await client
       .from("stats")
@@ -1204,7 +1587,7 @@ export class SupabaseDataRepository implements DataRepository {
   }
 
   async deleteStat(id: string): Promise<void> {
-    const client = await createSupabaseServerClient();
+    const client = await createSupabaseAdminClient();
     const { error } = await client.from("stats").delete().eq("id", id);
     if (error) throw error;
   }
@@ -1346,6 +1729,26 @@ export class SupabaseDataRepository implements DataRepository {
     const { data, error } = await client
       .from("acentalar")
       .update({ status })
+      .eq("id", id)
+      .select(AGENCY_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapAgencyRow(data as AcentalarRow);
+  }
+
+  /**
+   * Toggles whether an agency can see `tour_group_prices` rows. Unlike
+   * `updateAgencyStatus`/`updateAgencyProfile` (which stay on the caller's
+   * own RLS-scoped session), this uses the service-role client: it's a
+   * brand-new write path and the admin-only check belongs in the calling
+   * Server Action (`updateAgencyCanViewPricesAction`), not in an RLS policy
+   * on `acentalar`.
+   */
+  async updateAgencyCanViewPrices(id: string, canViewPrices: boolean): Promise<Agency> {
+    const client = await createSupabaseAdminClient();
+    const { data, error } = await client
+      .from("acentalar")
+      .update({ can_view_prices: canViewPrices })
       .eq("id", id)
       .select(AGENCY_COLUMNS)
       .single();

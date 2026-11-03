@@ -2,7 +2,7 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { TourCard } from "@/components/tours/TourCard";
 import { TourFilters } from "@/components/tours/TourFilters";
-import { NewTourForm } from "@/components/tours/NewTourForm";
+import { NewTourForm } from "@/components/tours/TourFormModal";
 import { repository } from "@/lib/data";
 
 interface PageProps {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { repository } from "./index";
 import {
   validateFeaturedSectionInput,
@@ -74,7 +74,7 @@ export async function uploadSiteImageAction(formData: FormData): Promise<UploadS
     return { path: null, url: null, error: `Dosya boyutu en fazla ${maxBytes / (1024 * 1024)}MB olabilir.` };
   }
 
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseAdminClient();
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${imageType}/${Date.now()}.${ext}`;
 

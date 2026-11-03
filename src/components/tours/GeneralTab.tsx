@@ -55,9 +55,12 @@ interface GeneralTabProps {
   value: GeneralFormState;
   onChange: (value: GeneralFormState) => void;
   fieldErrors: TourGeneralFieldErrors;
+  /** false while editing an existing tour — the live site links to the
+   * current slug, so it can't be changed once a tour exists. */
+  slugEditable?: boolean;
 }
 
-export function GeneralTab({ value, onChange, fieldErrors }: GeneralTabProps) {
+export function GeneralTab({ value, onChange, fieldErrors, slugEditable = true }: GeneralTabProps) {
   function set<K extends keyof GeneralFormState>(key: K, v: GeneralFormState[K]) {
     onChange({ ...value, [key]: v });
   }
@@ -77,13 +80,17 @@ export function GeneralTab({ value, onChange, fieldErrors }: GeneralTabProps) {
           value={value.titleEn}
           onChange={(v) => set("titleEn", v)}
         />
-        <TextInput
-          label="URL Slug"
-          hint="benzersiz olmalı"
-          value={value.slug}
-          error={fieldErrors.slug}
-          onChange={(v) => onChange({ ...value, slug: v, slugTouched: true })}
-        />
+        {slugEditable ? (
+          <TextInput
+            label="URL Slug"
+            hint="benzersiz olmalı"
+            value={value.slug}
+            error={fieldErrors.slug}
+            onChange={(v) => onChange({ ...value, slug: v, slugTouched: true })}
+          />
+        ) : (
+          <TextInput label="URL Slug" hint="düzenlemede değiştirilemez" value={value.slug} onChange={() => {}} disabled />
+        )}
         <TextInput
           label="Bölge"
           hint='örn. "AFRİKA" veya "SİNEMATİK ROTALAR"'
@@ -121,6 +128,8 @@ export function GeneralTab({ value, onChange, fieldErrors }: GeneralTabProps) {
           label="Başlangıç Tarihi"
           hint="opsiyonel"
           type="date"
+          max="9999-12-31"
+          error={fieldErrors.baseDateStart}
           value={value.baseDateStart}
           onChange={(v) => set("baseDateStart", v)}
         />
@@ -128,6 +137,8 @@ export function GeneralTab({ value, onChange, fieldErrors }: GeneralTabProps) {
           label="Bitiş Tarihi"
           hint="opsiyonel"
           type="date"
+          max="9999-12-31"
+          error={fieldErrors.baseDateEnd}
           value={value.baseDateEnd}
           onChange={(v) => set("baseDateEnd", v)}
         />

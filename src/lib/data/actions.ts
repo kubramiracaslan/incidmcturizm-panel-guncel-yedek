@@ -80,6 +80,31 @@ export async function updateAgencyStatusAction(
   return { error: null };
 }
 
+export interface UpdateAgencyCanViewPricesResult {
+  error: string | null;
+}
+
+/** Admin-only, writes via `repository.updateAgencyCanViewPrices`
+ * (service_role — see that method's doc comment). */
+export async function updateAgencyCanViewPricesAction(
+  agencyId: string,
+  canViewPrices: boolean,
+): Promise<UpdateAgencyCanViewPricesResult> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor." };
+  }
+
+  try {
+    await repository.updateAgencyCanViewPrices(agencyId, canViewPrices);
+  } catch {
+    return { error: "Fiyat görünürlüğü güncellenirken bir hata oluştu. Lütfen tekrar deneyin." };
+  }
+
+  revalidatePath("/admin/acente-yonetimi");
+  return { error: null };
+}
+
 export interface UpdateAgencyProfileResult {
   error: string | null;
   fieldErrors: AgencyProfileFieldErrors;

@@ -14,7 +14,10 @@ import type {
   SiteStat,
   TeklifTalebi,
   Tour,
+  TourEditData,
   TourFilters,
+  TourGroupPriceRow,
+  UpdateTourInput,
 } from "@/lib/types";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
 
@@ -83,6 +86,12 @@ export interface DataRepository {
   listTours(filters?: TourFilters): Promise<Tour[]>;
   getTourById(id: string): Promise<Tour | null>;
   createTour(input: CreateTourInput): Promise<{ id: string; slug: string }>;
+  getTourForEdit(id: string): Promise<TourEditData | null>;
+  updateTour(id: string, input: UpdateTourInput): Promise<{ id: string; slug: string }>;
+  deleteTour(id: string): Promise<void>;
+  /** Grup fiyatları — RLS admin veya onaylı acenteye göre filtreler; bu
+   * yüzden anon değil, çağıranın kendi oturumuyla (authenticated) okunur. */
+  getTourGroupPrices(tourId: string): Promise<TourGroupPriceRow[]>;
 
   listBlogPosts(): Promise<BlogPost[]>;
   getBlogPostById(id: string): Promise<BlogPost | null>;
@@ -113,6 +122,7 @@ export interface DataRepository {
   listAgencies(filters?: AgencyFilters): Promise<Agency[]>;
   getAgencyById(id: string): Promise<Agency | null>;
   updateAgencyStatus(id: string, status: AgencyStatus): Promise<Agency>;
+  updateAgencyCanViewPrices(id: string, canViewPrices: boolean): Promise<Agency>;
   updateAgencyProfile(id: string, input: AgencyProfileInput): Promise<Agency>;
 
   getDashboardStats(filters?: RequestFilters): Promise<DashboardStats>;

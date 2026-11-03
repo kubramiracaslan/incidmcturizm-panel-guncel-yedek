@@ -111,6 +111,104 @@ export interface CreateTourInput {
   dailyPrograms: CreateTourDailyProgramInput[];
   datesPrices: CreateTourDatePriceInput[];
   weatherData: CreateTourWeatherDataInput[];
+  groupPrices: CreateTourGroupPriceInput[];
+}
+
+/**
+ * One cell of the "Grup Fiyatları" matrix (`tour_group_prices`) — a price
+ * for one price-type row (e.g. "DBL PER PERSON") at one group-size column
+ * (e.g. "40+1"). Only admin and approved agencies can ever read this table
+ * (see `supabase/migrations/0001_tour_group_prices.sql`); site visitors and
+ * pending agencies never see prices.
+ */
+export interface CreateTourGroupPriceInput {
+  rowLabel: string;
+  groupLabel: string;
+  minPax: number;
+  price: number;
+  currency: Currency;
+  sortOrder: number;
+}
+
+export interface TourGroupPriceRow extends CreateTourGroupPriceInput {
+  id: string;
+}
+
+/**
+ * Write-side shape for "Turu Düzenle". Same columns as `CreateTourInput`
+ * minus `slug` — the slug is immutable once a tour exists (the live site
+ * links to it), so there is no field here that could ever change it.
+ */
+export interface UpdateTourInput {
+  title: string;
+  titleEn?: string;
+  region: string;
+  duration: string;
+  durationEn?: string;
+  basePrice: number;
+  basePriceCurrency: Currency;
+  baseDateStart?: string;
+  baseDateEnd?: string;
+  shortDescription: string;
+  shortDescriptionEn?: string;
+  longDescription: string;
+  longDescriptionEn?: string;
+  popularTour: boolean;
+  destinationStatus: boolean;
+  opportunityTour: boolean;
+  heroImagePath?: string;
+  toursMapImage?: string;
+  toursImage1?: string;
+  toursImage2?: string;
+  toursImage3?: string;
+  highlights: CreateTourHighlightInput[];
+  inclusions: CreateTourInclusionInput[];
+  tips: CreateTourTipInput[];
+  dailyPrograms: CreateTourDailyProgramInput[];
+  datesPrices: CreateTourDatePriceInput[];
+  weatherData: CreateTourWeatherDataInput[];
+  groupPrices: CreateTourGroupPriceInput[];
+}
+
+/** Full raw data needed to pre-fill the "Turu Düzenle" form — every column
+ * `CreateTourInput` writes, plus `id`/`slug` (read-only here) and each
+ * child table's rows in display order. */
+export interface TourEditData {
+  id: string;
+  slug: string;
+  title: string;
+  titleEn: string;
+  region: string;
+  duration: string;
+  durationEn: string;
+  basePrice: number;
+  basePriceCurrency: Currency;
+  baseDateStart: string;
+  baseDateEnd: string;
+  shortDescription: string;
+  shortDescriptionEn: string;
+  longDescription: string;
+  longDescriptionEn: string;
+  popularTour: boolean;
+  destinationStatus: boolean;
+  opportunityTour: boolean;
+  heroImagePath: string;
+  heroImageUrl: string;
+  toursMapImage: string;
+  toursMapImageUrl: string;
+  toursImage1: string;
+  toursImage1Url: string;
+  toursImage2: string;
+  toursImage2Url: string;
+  toursImage3: string;
+  toursImage3Url: string;
+  highlights: { content: string; contentEn: string }[];
+  inclusions: { content: string; contentEn: string }[];
+  tips: { content: string; contentEn: string; iconName: string }[];
+  dailyPrograms: { dayRange: string; title: string; titleEn: string; description: string; descriptionEn: string }[];
+  datesPrices: { travelPeriod: string; priceCategory: string; airline: string; price: number; currency: Currency }[];
+  weatherData: { month: string; temperature: number; rainfall: number; isBestPeriod: boolean }[];
+  groupPrices: TourGroupPriceRow[];
 }
 
 export interface BlogPost {
@@ -265,6 +363,11 @@ export interface Agency {
   email: string;
   phone: string;
   status: AgencyStatus;
+  /** `acentalar.can_view_prices` — admin tarafından acente bazında açılıp
+   * kapatılır; kapalıyken `tour_group_prices`'ın RLS politikası bu
+   * acenteye hiç satır döndürmez (bkz.
+   * `supabase/migrations/0002_agency_price_visibility.sql`). */
+  canViewPrices: boolean;
 }
 
 export interface AgencyFilters {

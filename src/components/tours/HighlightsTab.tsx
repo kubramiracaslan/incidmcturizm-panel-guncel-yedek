@@ -1,5 +1,5 @@
 import { Icon } from "@/components/ui/Icon";
-import { TextAreaField, TextInput } from "./formFields";
+import { TextAreaField } from "./formFields";
 
 export interface HighlightRow {
   content: string;
@@ -11,6 +11,14 @@ export interface InclusionRow {
   contentEn: string;
 }
 
+/**
+ * `tour_tips` has no icon concept on the live site — it always renders
+ * these rows under "Dahil Olmayanlar" with a fixed red-X icon (confirmed
+ * against inciyeni3's `TourDetailClient.tsx`), ignoring `icon_name`
+ * entirely. `iconName` stays on the type (and keeps round-tripping through
+ * edits unchanged) only because the column itself is NOT NULL; it's never
+ * shown in this form.
+ */
 export interface TipRow {
   content: string;
   contentEn: string;
@@ -29,17 +37,31 @@ export const emptyHighlightsForm: HighlightsFormState = {
   tips: [],
 };
 
+const DEFAULT_TIP_ICON = "close";
+
 interface HighlightsTabProps {
   value: HighlightsFormState;
   onChange: (value: HighlightsFormState) => void;
 }
 
+/**
+ * Three content lists, each backed by its own child table and each
+ * rendered by the live site under a fixed heading — confirmed against
+ * inciyeni3's `TourDetailClient.tsx`, not assumed from this table's own
+ * naming:
+ *   - `tour_highlights` → "Öne Çıkanlar" (amber star)
+ *   - `tour_inclusions` → "Dahil Olanlar" (green check)
+ *   - `tour_tips`       → "Dahil Olmayanlar" (red X)
+ * All three use the identical add/edit/remove format; `tour_tips` rows
+ * still carry a hidden `iconName` (see `TipRow`) so a save never violates
+ * that column's NOT NULL constraint.
+ */
 export function HighlightsTab({ value, onChange }: HighlightsTabProps) {
   return (
     <div className="space-y-10">
       <ContentListSection
-        title="Önemli Noktalar"
-        addLabel="Nokta Ekle"
+        title="Öne Çıkanlar"
+        addLabel="Madde Ekle"
         rows={value.highlights}
         onChange={(rows) => onChange({ ...value, highlights: rows })}
         newRow={() => ({ content: "", contentEn: "" })}
@@ -51,7 +73,13 @@ export function HighlightsTab({ value, onChange }: HighlightsTabProps) {
         onChange={(rows) => onChange({ ...value, inclusions: rows })}
         newRow={() => ({ content: "", contentEn: "" })}
       />
-      <TipsSection value={value.tips} onChange={(rows) => onChange({ ...value, tips: rows })} />
+      <ContentListSection
+        title="Dahil Olmayanlar"
+        addLabel="Madde Ekle"
+        rows={value.tips}
+        onChange={(rows) => onChange({ ...value, tips: rows })}
+        newRow={() => ({ content: "", contentEn: "", iconName: DEFAULT_TIP_ICON })}
+      />
     </div>
   );
 }
@@ -124,79 +152,6 @@ function ContentListSection<T extends { content: string; contentEn: string }>({
         {rows.length === 0 && (
           <p className="text-sm text-on-surface-variant">Henüz eklenmedi.</p>
         )}
-      </div>
-    </div>
-  );
-}
-
-function TipsSection({
-  value,
-  onChange,
-}: {
-  value: TipRow[];
-  onChange: (rows: TipRow[]) => void;
-}) {
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-headline-sm font-headline-sm font-bold text-on-surface">İpuçları</h3>
-        <button
-          type="button"
-          onClick={() => onChange([...value, { content: "", contentEn: "", iconName: "map-pin" }])}
-          className="flex items-center gap-1.5 rounded-lg bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:bg-secondary/20"
-        >
-          <Icon name="add" className="text-[18px]" />
-          İpucu Ekle
-        </button>
-      </div>
-      <div className="space-y-4">
-        {value.map((row, index) => (
-          <div key={index} className="flex items-start gap-3 rounded-lg bg-surface-container p-4">
-            <span className="mt-2.5 text-xs font-medium text-on-surface-variant">#{index + 1}</span>
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_140px]">
-              <TextAreaField
-                label="İçerik"
-                value={row.content}
-                onChange={(v) => {
-                  const next = [...value];
-                  next[index] = { ...next[index], content: v };
-                  onChange(next);
-                }}
-                rows={2}
-              />
-              <TextAreaField
-                label="İçerik (İngilizce)"
-                hint="opsiyonel"
-                value={row.contentEn}
-                onChange={(v) => {
-                  const next = [...value];
-                  next[index] = { ...next[index], contentEn: v };
-                  onChange(next);
-                }}
-                rows={2}
-              />
-              <TextInput
-                label="İkon Adı"
-                placeholder="map-pin"
-                value={row.iconName}
-                onChange={(v) => {
-                  const next = [...value];
-                  next[index] = { ...next[index], iconName: v };
-                  onChange(next);
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => onChange(value.filter((_, i) => i !== index))}
-              className="mt-2 text-error hover:text-error/80"
-              aria-label="Satırı sil"
-            >
-              <Icon name="delete" className="text-[18px]" />
-            </button>
-          </div>
-        ))}
-        {value.length === 0 && <p className="text-sm text-on-surface-variant">Henüz eklenmedi.</p>}
       </div>
     </div>
   );

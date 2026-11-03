@@ -1,17 +1,24 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { createTourAction } from "@/lib/data/tour-actions";
-import { validateTourGeneralInput, generateSlug, type TourGeneralFieldErrors } from "@/lib/validation/tour";
-import type { CreateTourInput } from "@/lib/types";
+import { createTourAction, updateTourAction } from "@/lib/data/tour-actions";
+import { validateTourGeneralInput, generateSlug, parsePriceInput, type TourGeneralFieldErrors } from "@/lib/validation/tour";
+import type { CreateTourInput, Currency, TourEditData, UpdateTourInput } from "@/lib/types";
 import { GeneralTab, emptyGeneralForm, type GeneralFormState } from "./GeneralTab";
 import { ImagesTab, emptyImagesForm, type ImagesFormState } from "./ImagesTab";
 import { HighlightsTab, emptyHighlightsForm, type HighlightsFormState } from "./HighlightsTab";
 import { ProgramTab, emptyProgramForm, type ProgramFormState } from "./ProgramTab";
 import { PricingTab, emptyPricingForm, type PricingFormState } from "./PricingTab";
 import { WeatherTab, emptyWeatherForm, type WeatherFormState } from "./WeatherTab";
+import {
+  GroupPricingTab,
+  emptyGroupPricingForm,
+  findInvalidPriceCell,
+  toGroupPricingFormState,
+  type GroupPricingFormState,
+} from "./GroupPricingTab";
 
 const TABS = [
   { id: "general", label: "Genel Bilgiler", icon: "info" },
@@ -19,6 +26,7 @@ const TABS = [
   { id: "highlights", label: "Öne Çıkanlar", icon: "star" },
   { id: "program", label: "Program", icon: "calendar_month" },
   { id: "pricing", label: "Fiyatlandırma", icon: "payments" },
+  { id: "groupPricing", label: "Grup Fiyatları", icon: "groups" },
   { id: "weather", label: "Hava Durumu", icon: "wb_sunny" },
 ] as const;
 
@@ -30,6 +38,7 @@ interface FormState {
   highlights: HighlightsFormState;
   program: ProgramFormState;
   pricing: PricingFormState;
+  groupPricing: GroupPricingFormState;
   weather: WeatherFormState;
 }
 
@@ -39,14 +48,65 @@ const emptyFormState: FormState = {
   highlights: emptyHighlightsForm,
   program: emptyProgramForm,
   pricing: emptyPricingForm,
+  groupPricing: emptyGroupPricingForm,
   weather: emptyWeatherForm,
 };
 
-function toCreateTourInput(form: FormState): CreateTourInput {
+/** Builds the form's initial state from an existing tour's full edit data
+ * (`getTourForEdit`), or returns the blank create-mode state when there's
+ * none. Weather rows are merged onto the full 12-month template so every
+ * month tab always renders, matching the create form's shape. */
+function toFormState(data?: TourEditData): FormState {
+  if (!data) return emptyFormState;
+  return {
+    general: {
+      title: data.title,
+      titleEn: data.titleEn,
+      slug: data.slug,
+      slugTouched: true,
+      region: data.region,
+      duration: data.duration,
+      durationEn: data.durationEn,
+      basePrice: String(data.basePrice),
+      basePriceCurrency: data.basePriceCurrency,
+      baseDateStart: data.baseDateStart,
+      baseDateEnd: data.baseDateEnd,
+      shortDescription: data.shortDescription,
+      shortDescriptionEn: data.shortDescriptionEn,
+      longDescription: data.longDescription,
+      longDescriptionEn: data.longDescriptionEn,
+      popularTour: data.popularTour,
+      destinationStatus: data.destinationStatus,
+      opportunityTour: data.opportunityTour,
+    },
+    images: {
+      hero: { path: data.heroImagePath, url: data.heroImageUrl },
+      map: { path: data.toursMapImage, url: data.toursMapImageUrl },
+      image1: { path: data.toursImage1, url: data.toursImage1Url },
+      image2: { path: data.toursImage2, url: data.toursImage2Url },
+      image3: { path: data.toursImage3, url: data.toursImage3Url },
+    },
+    highlights: {
+      highlights: data.highlights,
+      inclusions: data.inclusions,
+      tips: data.tips,
+    },
+    program: data.dailyPrograms,
+    pricing: data.datesPrices.map((p) => ({ ...p, price: String(p.price) })),
+    groupPricing: toGroupPricingFormState(data.groupPrices),
+    weather: emptyWeatherForm.map((row) => {
+      const match = data.weatherData.find((w) => w.month === row.month);
+      return match
+        ? { month: row.month, temperature: String(match.temperature), rainfall: String(match.rainfall), isBestPeriod: match.isBestPeriod }
+        : row;
+    }),
+  };
+}
+
+function toTourInput(form: FormState) {
   return {
     title: form.general.title.trim(),
     titleEn: form.general.titleEn.trim(),
-    slug: form.general.slug.trim(),
     region: form.general.region.trim(),
     duration: form.general.duration.trim(),
     durationEn: form.general.durationEn.trim(),
@@ -106,24 +166,64 @@ function toCreateTourInput(form: FormState): CreateTourInput {
         rainfall: Number(w.rainfall || 0),
         isBestPeriod: w.isBestPeriod,
       })),
+    groupPrices: toGroupPriceCells(form.groupPricing),
   };
 }
 
-export function NewTourForm() {
+/** Flattens the grid into saved cells — boş hücreler kaydedilmez. `minPax`
+ * comes straight from the column (fixed template, or parsed once when a
+ * legacy extra column was loaded — see `deriveGroupPriceOrder`), not
+ * re-parsed from the label here. `sortOrder` encodes `rowIndex * 100 +
+ * colIndex` so re-opening the form reconstructs the same row/column order
+ * (see `toGroupPricingFormState`). */
+function toGroupPriceCells(form: GroupPricingFormState) {
+  const result: { rowLabel: string; groupLabel: string; minPax: number; price: number; currency: Currency; sortOrder: number }[] = [];
+  form.rowLabels.forEach((rowLabel, rowIndex) => {
+    form.columns.forEach((col, colIndex) => {
+      const cell = form.cells[rowIndex]?.[colIndex];
+      if (!cell || !cell.price.trim()) return;
+      result.push({
+        rowLabel,
+        groupLabel: col.label,
+        minPax: col.minPax,
+        price: parsePriceInput(cell.price),
+        currency: cell.currency,
+        sortOrder: rowIndex * 100 + colIndex,
+      });
+    });
+  });
+  return result;
+}
+
+function toCreateTourInput(form: FormState): CreateTourInput {
+  return { ...toTourInput(form), slug: form.general.slug.trim() };
+}
+
+function toUpdateTourInput(form: FormState): UpdateTourInput {
+  return toTourInput(form);
+}
+
+type TourFormProps =
+  | { mode: "create"; renderTrigger: (open: () => void) => ReactNode }
+  | { mode: "edit"; tourId: string; initialData: TourEditData; renderTrigger: (open: () => void) => ReactNode };
+
+function TourForm(props: TourFormProps) {
+  const initialData = props.mode === "edit" ? props.initialData : undefined;
   const [open, setOpen] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("general");
-  const [form, setForm] = useState<FormState>(emptyFormState);
+  const [form, setForm] = useState<FormState>(() => toFormState(initialData));
   const [fieldErrors, setFieldErrors] = useState<TourGeneralFieldErrors>({});
   const [heroImageError, setHeroImageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isDirty = JSON.stringify(form) !== JSON.stringify(emptyFormState);
+  const baselineForm = toFormState(initialData);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(baselineForm);
 
   function openForm() {
-    setForm(emptyFormState);
+    setForm(toFormState(initialData));
     setFieldErrors({});
     setHeroImageError(null);
     setFormError(null);
@@ -146,6 +246,8 @@ export function NewTourForm() {
 
   function setGeneral(next: GeneralFormState) {
     // Auto-generate the slug from the title until the admin edits it by hand.
+    // In edit mode the slug field is read-only, so `slugTouched` (forced
+    // true when the form was built) keeps this from ever recomputing it.
     const slug = next.slugTouched ? next.slug : generateSlug(next.title);
     setForm((prev) => ({ ...prev, general: { ...next, slug } }));
   }
@@ -159,6 +261,8 @@ export function NewTourForm() {
       basePrice: form.general.basePrice,
       shortDescription: form.general.shortDescription,
       longDescription: form.general.longDescription,
+      baseDateStart: form.general.baseDateStart,
+      baseDateEnd: form.general.baseDateEnd,
     });
     if (!validation.valid) {
       setFieldErrors(validation.fieldErrors);
@@ -175,11 +279,20 @@ export function NewTourForm() {
       return;
     }
     setHeroImageError(null);
+
+    const invalidPriceCell = findInvalidPriceCell(form.groupPricing);
+    if (invalidPriceCell) {
+      setActiveTab("groupPricing");
+      setFormError(`"${invalidPriceCell.rowLabel}" / "${invalidPriceCell.groupLabel}" için 0'dan büyük geçerli bir sayı girin.`);
+      return;
+    }
     setFormError(null);
 
-    const input = toCreateTourInput(form);
     startTransition(async () => {
-      const result = await createTourAction(input);
+      const result =
+        props.mode === "edit"
+          ? await updateTourAction(props.tourId, toUpdateTourInput(form))
+          : await createTourAction(toCreateTourInput(form));
       if (result.error) {
         setFormError(result.error);
         setFieldErrors(result.fieldErrors);
@@ -187,23 +300,25 @@ export function NewTourForm() {
       }
       setConfirmingClose(false);
       setOpen(false);
-      setSuccessMessage(`"${form.general.title}" turu başarıyla oluşturuldu.`);
+      setSuccessMessage(
+        props.mode === "edit"
+          ? `"${form.general.title}" turu güncellendi.`
+          : `"${form.general.title}" turu başarıyla oluşturuldu.`,
+      );
       setTimeout(() => setSuccessMessage(null), 5000);
     });
   }
 
   return (
     <>
-      <Button variant="primary" icon="add" onClick={openForm}>
-        Yeni Tur Ekle
-      </Button>
+      {props.renderTrigger(openForm)}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center whitespace-normal bg-black/60 p-4">
           <div className="flex h-full max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border border-outline-variant bg-surface-container-high shadow-2xl">
             <div className="flex items-center justify-between border-b border-outline-variant/50 p-6">
               <h2 className="text-headline-sm font-headline-sm font-bold text-on-surface">
-                Yeni Tur Ekle
+                {props.mode === "edit" ? "Turu Düzenle" : "Yeni Tur Ekle"}
               </h2>
               <button
                 type="button"
@@ -235,7 +350,12 @@ export function NewTourForm() {
 
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === "general" && (
-                <GeneralTab value={form.general} onChange={setGeneral} fieldErrors={fieldErrors} />
+                <GeneralTab
+                  value={form.general}
+                  onChange={setGeneral}
+                  fieldErrors={fieldErrors}
+                  slugEditable={props.mode !== "edit"}
+                />
               )}
               {activeTab === "images" && (
                 <ImagesTab
@@ -263,6 +383,12 @@ export function NewTourForm() {
                 <PricingTab
                   value={form.pricing}
                   onChange={(pricing) => setForm((prev) => ({ ...prev, pricing }))}
+                />
+              )}
+              {activeTab === "groupPricing" && (
+                <GroupPricingTab
+                  value={form.groupPricing}
+                  onChange={(groupPricing) => setForm((prev) => ({ ...prev, groupPricing }))}
                 />
               )}
               {activeTab === "weather" && (
@@ -334,5 +460,38 @@ export function NewTourForm() {
         </div>
       )}
     </>
+  );
+}
+
+export function NewTourForm() {
+  return (
+    <TourForm
+      mode="create"
+      renderTrigger={(open) => (
+        <Button variant="primary" icon="add" onClick={open}>
+          Yeni Tur Ekle
+        </Button>
+      )}
+    />
+  );
+}
+
+interface TourEditButtonProps {
+  tourId: string;
+  initialData: TourEditData;
+}
+
+export function TourEditButton({ tourId, initialData }: TourEditButtonProps) {
+  return (
+    <TourForm
+      mode="edit"
+      tourId={tourId}
+      initialData={initialData}
+      renderTrigger={(open) => (
+        <Button variant="secondary" icon="edit" onClick={open}>
+          Turu Düzenle
+        </Button>
+      )}
+    />
   );
 }

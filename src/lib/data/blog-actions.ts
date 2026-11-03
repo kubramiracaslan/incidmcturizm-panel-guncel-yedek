@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { repository } from "./index";
 import type { BlogPostInput } from "./repository";
 import { validateBlogPostInput, type BlogPostFieldErrors } from "@/lib/validation/blog";
@@ -60,7 +60,7 @@ export async function uploadBlogImageAction(formData: FormData): Promise<UploadB
     return { path: null, url: null, error: "Dosya boyutu en fazla 5MB olabilir." };
   }
 
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseAdminClient();
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${imageType}/${Date.now()}.${ext}`;
 

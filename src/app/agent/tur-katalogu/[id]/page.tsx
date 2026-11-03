@@ -4,6 +4,8 @@ import { AgentShell } from "@/components/layout/AgentShell";
 import { Icon } from "@/components/ui/Icon";
 import { TourDetailSummary } from "@/components/tours/TourDetailSummary";
 import { TourInfoCard } from "@/components/tours/TourInfoCard";
+import { GroupPriceTable } from "@/components/tours/GroupPriceTable";
+import { TourProgramCard } from "@/components/tours/TourProgramCard";
 import { RequestForm } from "@/components/requests/RequestForm";
 import { repository } from "@/lib/data";
 
@@ -13,8 +15,11 @@ interface PageProps {
 
 export default async function AgentTourDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const tour = await repository.getTourById(id);
+  const [tour, editData] = await Promise.all([repository.getTourById(id), repository.getTourForEdit(id)]);
   if (!tour) notFound();
+
+  const dailyPrograms = editData?.dailyPrograms ?? [];
+  const groupPrices = editData?.groupPrices ?? [];
 
   return (
     <AgentShell title="Teklif İste">
@@ -32,40 +37,60 @@ export default async function AgentTourDetailPage({ params }: PageProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-5">
-          <TourDetailSummary tour={tour} />
-          <TourInfoCard
-            title="Dahil Olanlar"
-            headerIcon="check_circle"
-            headerColorClass="text-secondary"
-            itemIcon="done"
-            itemColorClass="text-secondary"
-            items={tour.includes}
-          />
-          <TourInfoCard
-            title="Dahil Olmayanlar"
-            headerIcon="cancel"
-            headerColorClass="text-error"
-            itemIcon="close"
-            itemColorClass="text-error"
-            items={tour.excludes}
-          />
-          <TourInfoCard
-            title="Önemli Noktalar"
-            headerIcon="info"
-            headerColorClass="text-tertiary"
-            itemIcon="error"
-            itemColorClass="text-tertiary"
-            items={tour.importantNotes}
-          />
-        </div>
-
-        <div className="lg:col-span-7">
-          <div className="lg:sticky lg:top-24">
-            <RequestForm tour={tour} cancelHref="/agent/tur-katalogu" />
+      {/* Bkz. admin tur detay sayfasındaki aynı desenin yorumu — iki
+         bağımsız sütun, mobilde `contents` + `order-*` ile tek sütuna iner. */}
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+        <div className="contents lg:flex lg:basis-0 lg:grow-[5] lg:flex-col lg:gap-6">
+          <div className="order-1">
+            <TourDetailSummary tour={tour} />
+          </div>
+          <div className="order-4">
+            <TourInfoCard
+              title="Dahil Olanlar"
+              headerIcon="check_circle"
+              headerColorClass="text-secondary"
+              itemIcon="done"
+              itemColorClass="text-secondary"
+              items={tour.includes}
+            />
+          </div>
+          <div className="order-5">
+            <TourInfoCard
+              title="Dahil Olmayanlar"
+              headerIcon="cancel"
+              headerColorClass="text-error"
+              itemIcon="close"
+              itemColorClass="text-error"
+              items={tour.excludes}
+            />
+          </div>
+          <div className="order-6">
+            <TourInfoCard
+              title="Önemli Noktalar"
+              headerIcon="info"
+              headerColorClass="text-tertiary"
+              itemIcon="error"
+              itemColorClass="text-tertiary"
+              items={tour.importantNotes}
+            />
           </div>
         </div>
+
+        <div className="contents lg:flex lg:basis-0 lg:grow-[7] lg:flex-col lg:gap-6">
+          <div className="order-2">
+            <TourProgramCard days={dailyPrograms} />
+          </div>
+
+          {groupPrices.length > 0 && (
+            <div className="order-3">
+              <GroupPriceTable rows={groupPrices} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <RequestForm tour={tour} cancelHref="/agent/tur-katalogu" />
       </div>
     </AgentShell>
   );

@@ -18,6 +18,10 @@ interface RequestsTableProps {
   amountColumnLabel?: string;
   /** Admin can act on a request's status inline; agents can only view it. */
   interactive?: boolean;
+  /** OM entegrasyonu (OPERATION_MANAGEMENT_BASE_URL/SECRET) sunucuda
+   * yapılandırılmış mı — değilse OM aktarım uyarısı/"tekrar dene" düğmesi
+   * hiç render edilmez (bkz. `isOperationManagementConfigured`). */
+  omConfigured?: boolean;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
@@ -72,6 +76,7 @@ export function RequestsTable({
   showAgencyColumn = false,
   amountColumnLabel = "Tutar",
   interactive = false,
+  omConfigured = false,
 }: RequestsTableProps) {
   const { visible: filtersVisible, setExportData } = useRequestsFilterVisibility();
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -327,6 +332,7 @@ export function RequestsTable({
                 <td className="px-4 py-3">
                   <StatusBadge status={request.status} />
                   {interactive &&
+                    omConfigured &&
                     request.status === "onaylandi" &&
                     (request.omSyncStatus === "pending" || request.omSyncStatus === "failed") && (
                       <div className="mt-1.5 flex flex-col items-start gap-1">

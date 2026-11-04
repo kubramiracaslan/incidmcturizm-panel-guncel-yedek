@@ -10,6 +10,8 @@ import {
   type AgencyProfileFieldErrors,
 } from "@/lib/validation/agency";
 import { notifyAgencyOfRequestStatus } from "@/lib/email/notifyRequestStatus";
+import { notifyAgencyOfApproval, notifyAgencyOfRejection } from "@/lib/email/notifyAgencyStatus";
+import { notifyAdminsOfNewRequest } from "@/lib/email/notifyAdmins";
 import { markPendingAndSyncToOperationManagement, retrySingleRequest } from "@/lib/integrations/omSync";
 import { validateRequestStartDate } from "@/lib/validation/request";
 
@@ -58,6 +60,8 @@ export async function createRequestAction(
     notes,
   });
 
+  await notifyAdminsOfNewRequest(created);
+
   revalidatePath("/agent/talepler");
   revalidatePath("/agent/dashboard");
   revalidatePath("/admin/talepler");
@@ -79,10 +83,17 @@ export async function updateAgencyStatusAction(
     return { error: "Bu işlem için yönetici yetkisi gerekiyor." };
   }
 
+  let agency;
   try {
-    await repository.updateAgencyStatus(agencyId, status);
+    agency = await repository.updateAgencyStatus(agencyId, status);
   } catch {
     return { error: "Durum güncellenirken bir hata oluştu. Lütfen tekrar deneyin." };
+  }
+
+  if (status === "approved") {
+    await notifyAgencyOfApproval(agency);
+  } else if (status === "rejected") {
+    await notifyAgencyOfRejection(agency);
   }
 
   revalidatePath("/admin/acente-yonetimi");
@@ -166,7 +177,7 @@ export async function changeRequestStatusAction(
 
   const agency = await repository.getAgencyById(updated.agencyId);
   if (agency) {
-    void notifyAgencyOfRequestStatus(updated, agency.email);
+    await notifyAgencyOfRequestStatus(updated, agency.email, agency.userId);
     if (status === "onaylandi") {
       await markPendingAndSyncToOperationManagement(updated, {
         email: agency.email,

@@ -358,6 +358,9 @@ export type AgencyStatus = "pending" | "approved" | "rejected";
 
 export interface Agency {
   id: string;
+  /** `acentalar.user_id` — bildirim tercihlerini (`notification_preferences`)
+   * bu acentenin kendi kullanıcı kaydına bağlamak için kullanılır. */
+  userId: string;
   name: string;
   contactName: string;
   /** Raw `isim` — kept separate from `contactName` because that joined

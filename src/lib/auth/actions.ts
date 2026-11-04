@@ -13,6 +13,7 @@ import {
 } from "@/lib/validation/agency-registration";
 import { validateAdminProfileInput, type AdminProfileFieldErrors } from "@/lib/validation/profile";
 import { validateNewPassword, validatePasswordsMatch } from "@/lib/validation/password";
+import { notifyAdminsOfNewAgency } from "@/lib/email/notifyAdmins";
 
 const LOGIN_ERROR_MESSAGES: Record<AuthResolutionFailureReason, string> = {
   "no-role": "Bu hesap için bir rol tanımlı değil. Lütfen yönetici ile iletişime geçin.",
@@ -161,6 +162,14 @@ export async function signUpAction(formData: FormData): Promise<SignUpFormState>
       success: false,
     };
   }
+
+  await notifyAdminsOfNewAgency({
+    acentaIsmi: validation.value.acentaIsmi,
+    firstName: validation.value.firstName,
+    lastName: validation.value.lastName,
+    email: validation.value.email,
+    phone: validation.value.phone,
+  });
 
   return { error: null, fieldErrors: {}, success: true };
 }

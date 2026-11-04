@@ -20,6 +20,14 @@ function addNights(startDate: string, nights: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** OM entegrasyonu için gerekli iki ortam değişkeni de tanımlıysa `true`.
+ * Sadece bu boolean istemciye geçer — değerlerin kendisi asla. UI, OM hiç
+ * yapılandırılmamışken "iletilemedi" uyarısını/"tekrar dene" düğmesini
+ * göstermemek için bunu kullanır (bkz. `RequestsTable`). */
+export function isOperationManagementConfigured(): boolean {
+  return Boolean(process.env.OPERATION_MANAGEMENT_BASE_URL && process.env.OPERATION_MANAGEMENT_API_SECRET);
+}
+
 export async function sendRequestToOperationManagement(
   request: TeklifTalebi,
   agency: AgencyContact,

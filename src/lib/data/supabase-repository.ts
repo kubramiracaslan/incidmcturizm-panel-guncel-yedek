@@ -43,10 +43,11 @@ import type { AgencyProfileInput } from "@/lib/validation/agency";
 import { generateSlug } from "@/lib/validation/tour";
 import { normalizeForSearch } from "@/lib/format";
 
-const AGENCY_COLUMNS = "id, acenta_ismi, isim, soyisim, email, telefon, status, can_view_prices";
+const AGENCY_COLUMNS = "id, user_id, acenta_ismi, isim, soyisim, email, telefon, status, can_view_prices";
 
 interface AcentalarRow {
   id: string;
+  user_id: string;
   acenta_ismi: string | null;
   isim: string | null;
   soyisim: string | null;
@@ -59,6 +60,7 @@ interface AcentalarRow {
 function mapAgencyRow(row: AcentalarRow): Agency {
   return {
     id: row.id,
+    userId: row.user_id,
     name: row.acenta_ismi ?? "",
     contactName: [row.isim, row.soyisim].filter(Boolean).join(" "),
     firstName: row.isim ?? "",

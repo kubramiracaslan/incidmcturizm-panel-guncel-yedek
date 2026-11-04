@@ -9,6 +9,7 @@ import {
   RequestsFilterToggleButton,
 } from "@/components/requests/RequestsFilterContext";
 import { repository } from "@/lib/data";
+import { isOperationManagementConfigured } from "@/lib/integrations/operationManagement";
 import type { RequestStatus } from "@/lib/types";
 
 interface PageProps {
@@ -41,7 +42,12 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
 
         <div className="overflow-hidden rounded-xl border border-white/10 bg-primary-container shadow-sm">
           <RequestStatusTabs basePath="/admin/talepler" activeStatus={status ?? ""} />
-          <RequestsTable requests={requests} showAgencyColumn interactive />
+          <RequestsTable
+            requests={requests}
+            showAgencyColumn
+            interactive
+            omConfigured={isOperationManagementConfigured()}
+          />
         </div>
       </RequestsFilterProvider>
     </AdminShell>

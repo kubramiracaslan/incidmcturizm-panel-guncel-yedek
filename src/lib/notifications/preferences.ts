@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/lib/types";
 
 export const ADMIN_PREFERENCE_DEFAULTS: Record<string, boolean> = {
@@ -21,13 +21,25 @@ export function allowedPreferenceKeys(role: UserRole): string[] {
 }
 
 // Tablo yoksa veya sorgu hata verirse varsayılanlarla devam eder.
+//
+// service_role ile okunuyor (session ile değil): bu fonksiyon sadece
+// kendi tercihini okuyan kullanıcı için değil, admin bir talebin durumunu
+// değiştirirken BAŞKA bir kullanıcının (acentenin) tercihini okumak için de
+// çağrılıyor (bkz. notifyRequestStatus.ts). notification_preferences'ın RLS
+// policy'si "auth.uid() = user_id" olduğundan, admin'in kendi session'ıyla
+// acentenin satırını sorgulamak RLS tarafından sessizce 0 satıra düşürülür
+// (hata fırlamaz) — kod bunu "tercih hiç ayarlanmamış" ile aynı sayıp
+// yanlışlıkla varsayılana döner. service_role bu filtrelemeyi atlar; hangi
+// `userId` için okunduğu zaten `.eq("user_id", userId)` ile sabitlendiğinden
+// bir güvenlik kaybı yok — sadece RLS'in rolü burada "başka bir kullanıcı
+// adına okuma" senaryosunda yanlış taraf.
 export async function getNotificationPreferences(
   userId: string,
   role: UserRole,
 ): Promise<Record<string, boolean>> {
   const preferences = { ...defaultsForRole(role) };
 
-  const client = await createSupabaseServerClient();
+  const client = await createSupabaseAdminClient();
   const { data, error } = await client
     .from("notification_preferences")
     .select("pref_key, enabled")

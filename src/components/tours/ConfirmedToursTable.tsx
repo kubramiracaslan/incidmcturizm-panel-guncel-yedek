@@ -130,7 +130,7 @@ export function ConfirmedToursTable({
                   Acente Adı
                 </th>
               )}
-              <th className="px-4 py-3 text-center text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+              <th className="px-4 py-3 text-left text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
                 Tur Adı
               </th>
               <th className="px-4 py-3 text-center text-label-sm font-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
@@ -169,7 +169,7 @@ export function ConfirmedToursTable({
                   </select>
                 </th>
               )}
-              <th className="px-4 py-2 text-center">
+              <th className="px-4 py-2 text-left">
                 <select
                   value={filters.tourName}
                   onChange={(e) => setFilter("tourName", e.target.value)}
@@ -270,8 +270,8 @@ export function ConfirmedToursTable({
                     {request.agencyName}
                   </td>
                 )}
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-3">
+                <td className="px-4 py-3 text-left">
+                  <div className="flex items-center justify-start gap-3">
                     <div className="h-8 w-8 shrink-0 overflow-hidden rounded border border-outline-variant/50 bg-surface">
                       {request.tourImage ? (
                         <Image

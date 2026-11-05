@@ -7,6 +7,7 @@ import { TourInfoCard } from "@/components/tours/TourInfoCard";
 import { GroupPriceTable } from "@/components/tours/GroupPriceTable";
 import { TourProgramCard } from "@/components/tours/TourProgramCard";
 import { RequestFormModal } from "@/components/requests/RequestFormModal";
+import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data";
 
 interface PageProps {
@@ -15,11 +16,17 @@ interface PageProps {
 
 export default async function AgentTourDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [tour, editData] = await Promise.all([repository.getTourById(id), repository.getTourForEdit(id)]);
+  const [user, tour, editData] = await Promise.all([
+    getSession(),
+    repository.getTourById(id),
+    repository.getTourForEdit(id),
+  ]);
   if (!tour) notFound();
 
   const dailyPrograms = editData?.dailyPrograms ?? [];
   const groupPrices = editData?.groupPrices ?? [];
+  const agency = user?.agencyId ? await repository.getAgencyById(user.agencyId) : null;
+  const canViewPrices = agency?.canViewPrices ?? false;
 
   return (
     <AgentShell title="Tur Kataloğu">
@@ -82,19 +89,21 @@ export default async function AgentTourDetailPage({ params }: PageProps) {
             <TourProgramCard days={dailyPrograms} />
           </div>
 
-          <div className="order-3">
-            {groupPrices.length > 0 ? (
-              <GroupPriceTable rows={groupPrices} />
-            ) : (
-              <div className="rounded-xl border border-outline-variant bg-primary-container p-6">
-                <h3 className="mb-2 text-headline-sm font-headline-sm font-bold text-on-surface">Grup Fiyatları</h3>
-                <p className="text-sm text-on-surface-variant">
-                  Bu tur için grup fiyatları henüz yayınlanmadı. Fiyat bilgisi için bizimle iletişime
-                  geçebilirsiniz.
-                </p>
-              </div>
-            )}
-          </div>
+          {canViewPrices && (
+            <div className="order-3">
+              {groupPrices.length > 0 ? (
+                <GroupPriceTable rows={groupPrices} />
+              ) : (
+                <div className="rounded-xl border border-outline-variant bg-primary-container p-6">
+                  <h3 className="mb-2 text-headline-sm font-headline-sm font-bold text-on-surface">Grup Fiyatları</h3>
+                  <p className="text-sm text-on-surface-variant">
+                    Bu tur için grup fiyatları henüz yayınlanmadı. Fiyat bilgisi için bizimle iletişime
+                    geçebilirsiniz.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </AgentShell>

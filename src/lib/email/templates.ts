@@ -71,23 +71,33 @@ function contactLink(href: string, text: string): string {
 
 /**
  * Vurgu yeşili zeminde düğme — tablo tabanlı, `bgcolor` özniteliğiyle
- * (Outlook masaüstü `background-color`'ı değil bunu okur). `url` boşsa
- * (örn. `PANEL_BASE_URL` tanımsız) hiç render edilmez — kırık/bağlantısız
- * bir düğme göstermez. Bilgi tablosunun altında, ortalanmış, üstünde 24px
- * boşlukla durur — dış tablo tam genişlikte, `align="center"` olan hücresi
- * içindeki iç tablo düğmenin kendi genişliğinde kalır (mail istemcilerinde
+ * (Outlook masaüstü `background-color`'ı değil bunu okur). Padding da
+ * aynı sebeple `<a>` üzerinde değil `<td>` üzerinde — Outlook masaüstü
+ * (Word render motoru) bir `<a>`'ya verilen `padding`'i yok sayar; `<a>`
+ * sadece renk/kalınlık/yazı tipi/boyut ve `text-decoration:none` taşıyor.
+ * Üstteki 24px boşluk da bir tablo `margin`'i yerine ayrı bir `<td
+ * height="24">` boş satırıyla veriliyor (Outlook `margin`'i de yok sayar).
+ * `url` boşsa (örn. `PANEL_BASE_URL` tanımsız) hiç render edilmez — kırık/
+ * bağlantısız bir düğme göstermez. Bilgi tablosunun altında, ortalanmış
+ * durur — dış tablo tam genişlikte, `align="center"` olan hücresi içindeki
+ * iç tablo düğmenin kendi genişliğinde kalır (mail istemcilerinde
  * ortalamanın standart yolu).
  */
 function ctaButton(label: string, url: string | null): string {
   if (!url) return "";
   return `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td height="24" style="font-size:0; line-height:0;">&nbsp;</td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0">
             <tr>
-              <td bgcolor="${COLORS.buttonBg}" style="border-radius:6px; background-color:${COLORS.buttonBg};">
-                <a href="${url}" style="color:${COLORS.buttonText} !important; text-decoration:none; font-weight:bold; font-size:15px; padding:12px 24px; display:inline-block; font-family:${FONT};">${label}</a>
+              <td bgcolor="${COLORS.buttonBg}" style="padding:12px 24px; border-radius:6px;">
+                <a href="${url}" style="color:${COLORS.buttonText} !important; text-decoration:none; font-weight:bold; font-size:15px; font-family:${FONT};">${label}</a>
               </td>
             </tr>
           </table>
@@ -110,14 +120,15 @@ interface EmailLayoutParams {
  * fazla 560px genişliğinde beyaz bir içerik kartı. Tablo tabanlı yapı +
  * satır içi (inline) CSS — mail istemcileri için flex/grid yerine bu
  * kullanılır, mail penceresine yayılmaz. Logo `PANEL_BASE_URL` + `/logo2.png`
- * üzerinden mutlak bir URL'e ihtiyaç duyar (mail istemcileri yerel dosya
- * yolunu gösteremez); bu değişken tanımsızsa logo hiç render edilmez,
- * sadece metin kalır.
+ * üzerinden mutlak bir URL'e ihtiyaç duyar; bu değişken tanımsızsa veya
+ * `localhost` içeriyorsa (mailde zaten açılmayacağı için) `<img>` hiç
+ * render edilmez, sadece metin kalır.
  */
 function emailLayout({ heading, description, bodyHtml = "", cta = "" }: EmailLayoutParams): string {
   const logoSrc = panelUrl("/logo2.png");
-  const logoImg = logoSrc
-    ? `<td style="padding-right:10px; vertical-align:middle;"><img src="${logoSrc}" width="42" height="28" alt="İnci DMC Turizm" style="display:block; border:0;"></td>`
+  const logoUsable = logoSrc && !logoSrc.includes("localhost");
+  const logoImg = logoUsable
+    ? `<td style="padding-right:10px; vertical-align:middle;"><img src="${logoSrc}" width="42" height="28" alt="" style="display:block; border:0;"></td>`
     : "";
 
   return `

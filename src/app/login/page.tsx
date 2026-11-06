@@ -151,12 +151,6 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-
-        <div className="mt-6 rounded-lg border border-outline-variant/40 bg-surface-container/60 p-4 text-xs text-on-surface-variant">
-          <p className="mb-1 font-semibold text-on-surface">Demo giriş bilgileri</p>
-          <p>Acente: acente@mail.com / demo1234</p>
-          <p>Admin: admin@incidmcturizm.com / demo1234</p>
-        </div>
       </div>
 
       <div className="z-10 mt-12 text-center text-xs text-on-surface-variant">

@@ -11,7 +11,10 @@ interface PageProps {
 
 export default async function AgentTourCatalogPage({ searchParams }: PageProps) {
   const { region, q } = await searchParams;
-  const tours = await repository.listTours({ region, search: q });
+  const [tours, regions] = await Promise.all([
+    repository.listTours({ region, search: q }),
+    repository.listTourRegions(),
+  ]);
 
   return (
     <AgentShell title="Tur Kataloğu">
@@ -23,7 +26,7 @@ export default async function AgentTourCatalogPage({ searchParams }: PageProps) 
         <Icon name="info" className="text-[18px]" />
         Talep oluşturmak için bir tur seçin.
       </div>
-      <TourFilters basePath="/agent/tur-katalogu" resultCount={tours.length} />
+      <TourFilters basePath="/agent/tur-katalogu" resultCount={tours.length} regions={regions} />
       <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
         {tours.map((tour) => (
           <TourCard key={tour.id} tour={tour} basePath="/agent/tur-katalogu" />

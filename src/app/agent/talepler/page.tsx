@@ -23,11 +23,11 @@ export default async function AgentRequestsPage({ searchParams }: PageProps) {
   const user = await getSession();
   if (!user || !user.agencyId) redirect("/login");
 
-  const stats = await repository.getDashboardStats({ agencyId: user.agencyId });
-  const requests = await repository.listRequests({
-    agencyId: user.agencyId,
-    status: status as RequestStatus | undefined,
-  });
+  const [allAgencyRequests, requests] = await Promise.all([
+    repository.listRequests({ agencyId: user.agencyId }),
+    repository.listRequests({ agencyId: user.agencyId, status: status as RequestStatus | undefined }),
+  ]);
+  const stats = await repository.getDashboardStats(allAgencyRequests, { agencyId: user.agencyId });
 
   return (
     <AgentShell title="Taleplerim">

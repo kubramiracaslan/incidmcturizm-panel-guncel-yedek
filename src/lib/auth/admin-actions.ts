@@ -10,6 +10,7 @@ import {
   type AgencyRegistrationInput,
 } from "@/lib/validation/agency-registration";
 import { validateNewPassword } from "@/lib/validation/password";
+import { notifyAgencyOfAccountCreated } from "@/lib/email/notifyAgencyStatus";
 
 export type CreateAgencyFieldErrors = AgencyRegistrationFieldErrors & { password?: string };
 
@@ -98,6 +99,12 @@ export async function createAgencyAction(formData: FormData): Promise<CreateAgen
       success: false,
     };
   }
+
+  await notifyAgencyOfAccountCreated({
+    email: validation.value.email,
+    firstName: validation.value.firstName,
+    lastName: validation.value.lastName,
+  });
 
   revalidatePath("/admin/acente-yonetimi");
   return { error: null, fieldErrors: {}, success: true };

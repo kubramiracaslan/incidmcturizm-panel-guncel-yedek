@@ -18,11 +18,12 @@ interface PageProps {
 
 export default async function AdminTourDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [tour, allRequests, editData, groupPrices] = await Promise.all([
+  const [tour, allRequests, editData, groupPrices, existingRegions] = await Promise.all([
     repository.getTourById(id),
     repository.listRequests(),
     repository.getTourForEdit(id),
     repository.getTourGroupPrices(id),
+    repository.listTourRegions(),
   ]);
   if (!tour || !editData) notFound();
 
@@ -45,7 +46,7 @@ export default async function AdminTourDetailPage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <TourEditButton tourId={tour.id} initialData={editData} />
+          <TourEditButton tourId={tour.id} initialData={editData} existingRegions={existingRegions} />
           <DeleteTourButton id={tour.id} name={tour.name} />
         </div>
       </div>

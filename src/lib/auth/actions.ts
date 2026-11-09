@@ -14,6 +14,7 @@ import {
 import { validateAdminProfileInput, type AdminProfileFieldErrors } from "@/lib/validation/profile";
 import { validateNewPassword, validatePasswordsMatch } from "@/lib/validation/password";
 import { notifyAdminsOfNewAgency } from "@/lib/email/notifyAdmins";
+import { panelUrl } from "@/lib/email/panelUrl";
 
 const LOGIN_ERROR_MESSAGES: Record<AuthResolutionFailureReason, string> = {
   "no-role": "Bu hesap için bir rol tanımlı değil. Lütfen yönetici ile iletişime geçin.",
@@ -37,6 +38,11 @@ export async function loginAction(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
+    // Sadece bu durumu ayır — diğer her hata (yanlış şifre, kullanıcı yok,
+    // vb.) aynı genel mesajı alır, kullanıcının var/yok olduğu sızdırılmaz.
+    if (error?.code === "email_not_confirmed") {
+      return { error: "E-posta adresinizi doğrulamanız gerekiyor. Lütfen mailinizi kontrol edin." };
+    }
     return { error: "E-posta veya şifre hatalı." };
   }
 
@@ -111,10 +117,15 @@ export async function signUpAction(formData: FormData): Promise<SignUpFormState>
     };
   }
 
+  // `PANEL_BASE_URL` tanımsızsa `options` hiç eklenmiyor — Supabase'in kendi
+  // proje ayarlarındaki varsayılan Site URL'ine düşer (mevcut davranış).
+  const emailRedirectTo = panelUrl("/login?confirmed=1");
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email: validation.value.email,
     password,
+    ...(emailRedirectTo ? { options: { emailRedirectTo } } : {}),
   });
   if (error || !data.user) {
     const message =

@@ -11,16 +11,19 @@ interface PageProps {
 
 export default async function AdminTourCatalogPage({ searchParams }: PageProps) {
   const { region, q } = await searchParams;
-  const tours = await repository.listTours({ region, search: q });
+  const [tours, regions] = await Promise.all([
+    repository.listTours({ region, search: q }),
+    repository.listTourRegions(),
+  ]);
 
   return (
     <AdminShell title="Tur Kataloğu">
       <PageHeader
         title="Tur Kataloğu"
         description="Acentelerin gördüğü katalog görünümü"
-        actions={<NewTourForm />}
+        actions={<NewTourForm existingRegions={regions} />}
       />
-      <TourFilters basePath="/admin/tur-katalogu" resultCount={tours.length} />
+      <TourFilters basePath="/admin/tur-katalogu" resultCount={tours.length} regions={regions} />
       <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
         {tours.map((tour) => (
           <TourCard key={tour.id} tour={tour} basePath="/admin/tur-katalogu" />

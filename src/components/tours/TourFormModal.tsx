@@ -206,8 +206,14 @@ function toUpdateTourInput(form: FormState): UpdateTourInput {
 }
 
 type TourFormProps =
-  | { mode: "create"; renderTrigger: (open: () => void) => ReactNode }
-  | { mode: "edit"; tourId: string; initialData: TourEditData; renderTrigger: (open: () => void) => ReactNode };
+  | { mode: "create"; existingRegions?: string[]; renderTrigger: (open: () => void) => ReactNode }
+  | {
+      mode: "edit";
+      tourId: string;
+      initialData: TourEditData;
+      existingRegions?: string[];
+      renderTrigger: (open: () => void) => ReactNode;
+    };
 
 function TourForm(props: TourFormProps) {
   const initialData = props.mode === "edit" ? props.initialData : undefined;
@@ -357,6 +363,7 @@ function TourForm(props: TourFormProps) {
                   onChange={setGeneral}
                   fieldErrors={fieldErrors}
                   slugEditable={props.mode !== "edit"}
+                  existingRegions={props.existingRegions}
                 />
               )}
               {activeTab === "images" && (
@@ -465,10 +472,11 @@ function TourForm(props: TourFormProps) {
   );
 }
 
-export function NewTourForm() {
+export function NewTourForm({ existingRegions }: { existingRegions?: string[] }) {
   return (
     <TourForm
       mode="create"
+      existingRegions={existingRegions}
       renderTrigger={(open) => (
         <Button variant="primary" icon="add" onClick={open}>
           Yeni Tur Ekle
@@ -481,14 +489,16 @@ export function NewTourForm() {
 interface TourEditButtonProps {
   tourId: string;
   initialData: TourEditData;
+  existingRegions?: string[];
 }
 
-export function TourEditButton({ tourId, initialData }: TourEditButtonProps) {
+export function TourEditButton({ tourId, initialData, existingRegions }: TourEditButtonProps) {
   return (
     <TourForm
       mode="edit"
       tourId={tourId}
       initialData={initialData}
+      existingRegions={existingRegions}
       renderTrigger={(open) => (
         <Button variant="secondary" icon="edit" onClick={open}>
           Turu Düzenle

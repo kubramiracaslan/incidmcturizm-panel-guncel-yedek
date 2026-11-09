@@ -138,9 +138,13 @@ export default function KayitPage() {
             <h2 className="mb-2 text-headline-md font-headline-md text-on-surface">
               Kaydınız alındı
             </h2>
-            <p className="mb-6 text-body-md text-on-surface-variant">
+            <p className="mb-2 text-body-md text-on-surface-variant">
               Başvurunuz yönetici onayına gönderildi. Onaylandığında bu e-posta ve şifrenizle
               giriş yapabileceksiniz.
+            </p>
+            <p className="mb-6 text-body-md text-on-surface-variant">
+              E-posta adresinize bir doğrulama bağlantısı gönderdik. Lütfen bağlantıya tıklayarak
+              e-postanızı doğrulayın. Ardından başvurunuz yönetici tarafından incelenecektir.
             </p>
             <Link
               href="/login"

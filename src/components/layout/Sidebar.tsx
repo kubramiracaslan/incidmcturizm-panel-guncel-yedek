@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Icon } from "@/components/ui/Icon";
+import { SupportPopover } from "./SupportPopover";
 import type { NavItem } from "@/lib/nav";
 
 interface SidebarProps {
@@ -93,13 +94,7 @@ export function Sidebar({
         </div>
 
         <div className="mt-auto space-y-1 border-t border-outline-variant/30 px-2 pt-4">
-          <Link
-            href="#"
-            className="flex items-center gap-3 rounded-lg px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          >
-            <Icon name="help" />
-            <span className="text-label-sm font-label-sm">Destek</span>
-          </Link>
+          <SupportPopover />
         </div>
       </nav>
     </>

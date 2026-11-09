@@ -227,6 +227,25 @@ export function agencyRejectedEmail(agency: Agency): EmailContent {
   };
 }
 
+interface AccountCreatedInput {
+  firstName: string;
+  lastName: string;
+}
+
+/** Admin "Yeni Acente Ekle" ile bir hesap oluşturduğunda acenteye gönderilir
+ * — şifreyi hiç içermez, sadece hesabın var olduğunu bildirir. `panelLoginUrl`
+ * boşsa "Giriş Yap" düğmesi hiç gösterilmez. */
+export function agencyAccountCreatedEmail(input: AccountCreatedInput, panelLoginUrl: string | null): EmailContent {
+  return {
+    subject: "Acente hesabınız oluşturuldu",
+    html: emailLayout({
+      heading: "Hesabınız oluşturuldu",
+      description: `Merhaba ${input.firstName} ${input.lastName}, İnci DMC Turizm acente hesabınız oluşturuldu. Giriş bilgileriniz size ayrıca iletilecektir.`,
+      cta: ctaButton("Giriş Yap", panelLoginUrl),
+    }),
+  };
+}
+
 /** Yeni bir teklif talebi oluşunca adminlere gönderilir. `panelRequestsUrl`
  * boşsa "Panelde Görüntüle" düğmesi hiç gösterilmez. */
 export function newRequestAdminEmail(request: TeklifTalebi, panelRequestsUrl: string | null): EmailContent {

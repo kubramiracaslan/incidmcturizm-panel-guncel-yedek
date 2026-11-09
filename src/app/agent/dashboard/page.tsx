@@ -20,11 +20,11 @@ export default async function AgentDashboardPage() {
   const user = await getSession();
   if (!user || !user.agencyId) redirect("/login");
 
-  const [stats, requests, tours] = await Promise.all([
-    repository.getDashboardStats({ agencyId: user.agencyId }),
+  const [requests, tours] = await Promise.all([
     repository.listRequests({ agencyId: user.agencyId }),
     repository.listTours(),
   ]);
+  const stats = await repository.getDashboardStats(requests, { agencyId: user.agencyId });
 
   const activity = buildActivityFeed(requests);
   const popularTours = tours.filter((tour) => tour.isPopular).slice(0, 4);

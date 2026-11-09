@@ -58,9 +58,13 @@ interface GeneralTabProps {
   /** false while editing an existing tour — the live site links to the
    * current slug, so it can't be changed once a tour exists. */
   slugEditable?: boolean;
+  /** Mevcut turlardaki `region` değerleri — "Bölge" alanında yazım farkını
+   * önlemek için bir `<datalist>` önerisi olarak gösterilir. Alan yine
+   * serbest metin kalır, bu listeyle sınırlanmaz. */
+  existingRegions?: string[];
 }
 
-export function GeneralTab({ value, onChange, fieldErrors, slugEditable = true }: GeneralTabProps) {
+export function GeneralTab({ value, onChange, fieldErrors, slugEditable = true, existingRegions = [] }: GeneralTabProps) {
   function set<K extends keyof GeneralFormState>(key: K, v: GeneralFormState[K]) {
     onChange({ ...value, [key]: v });
   }
@@ -97,7 +101,13 @@ export function GeneralTab({ value, onChange, fieldErrors, slugEditable = true }
           value={value.region}
           error={fieldErrors.region}
           onChange={(v) => set("region", v)}
+          list="region-suggestions"
         />
+        <datalist id="region-suggestions">
+          {existingRegions.map((region) => (
+            <option key={region} value={region} />
+          ))}
+        </datalist>
         <TextInput
           label="Süre"
           placeholder="Örn: 5 GECE 7 GÜN"

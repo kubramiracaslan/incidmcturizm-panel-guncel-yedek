@@ -84,6 +84,11 @@ export interface BlogPostInput {
  */
 export interface DataRepository {
   listTours(filters?: TourFilters): Promise<Tour[]>;
+  /** Dolu ve tekrarsız `tours.region` değerleri, "tr" locale'ine göre
+   * alfabetik sıralı — tur kataloğu filtresinin seçenek listesi için
+   * (bkz. `TourFilters`). `listTours()` ile aynı erişim kuralını kullanır
+   * (anon/public — turlar herkese açık). */
+  listTourRegions(): Promise<string[]>;
   getTourById(id: string): Promise<Tour | null>;
   createTour(input: CreateTourInput): Promise<{ id: string; slug: string }>;
   getTourForEdit(id: string): Promise<TourEditData | null>;
@@ -125,5 +130,10 @@ export interface DataRepository {
   updateAgencyCanViewPrices(id: string, canViewPrices: boolean): Promise<Agency>;
   updateAgencyProfile(id: string, input: AgencyProfileInput): Promise<Agency>;
 
-  getDashboardStats(filters?: RequestFilters): Promise<DashboardStats>;
+  /** `requests` çağıranın zaten çektiği (aynı `filters` ile scoped) liste —
+   * burada tekrar `listRequests()` çağrılmaz, sayfanın kendi talep
+   * verisiyle aynı sorgu iki kez çalışmaz (bkz. admin/agent dashboard
+   * sayfaları). `filters` sadece ciro toplamının (`fetchApprovedRevenueRows`)
+   * doğru kapsamda kalması için kullanılır. */
+  getDashboardStats(requests: TeklifTalebi[], filters?: RequestFilters): Promise<DashboardStats>;
 }

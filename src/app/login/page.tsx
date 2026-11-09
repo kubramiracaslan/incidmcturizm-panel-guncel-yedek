@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useActionState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
@@ -10,8 +10,21 @@ import { loginAction, type LoginFormState } from "@/lib/auth/actions";
 const initialState: LoginFormState = { error: null };
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
   const router = useRouter();
+  // Sadece bilgi göstermek için — bu değer hiçbir yetki/oturum kararında
+  // kullanılmıyor, e-posta doğrulama linkine tıklandıktan sonra sadece
+  // başarı mesajı göstermeye yarıyor (bkz. signUpAction'daki emailRedirectTo).
+  const searchParams = useSearchParams();
+  const emailConfirmed = searchParams.get("confirmed") === "1";
 
   useEffect(() => {
     if (state.redirectTo) {
@@ -65,6 +78,13 @@ export default function LoginPage() {
           <p className="mb-6 text-body-md text-on-surface-variant">
             Hesabınıza ait e-posta ve şifre ile devam edin.
           </p>
+
+          {emailConfirmed && (
+            <div className="mb-5 flex items-start gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-3 text-sm text-secondary">
+              <Icon name="check_circle" className="mt-0.5 flex-shrink-0" />
+              <span>E-postanız doğrulandı. Başvurunuz yönetici onayından sonra aktif olacaktır.</span>
+            </div>
+          )}
 
           <form action={formAction} className="space-y-5">
             <div>

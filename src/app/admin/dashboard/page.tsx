@@ -22,11 +22,11 @@ const todayLabel = new Intl.DateTimeFormat("tr-TR", {
 export default async function AdminDashboardPage() {
   const user = await getSession();
 
-  const [stats, requests, tours] = await Promise.all([
-    repository.getDashboardStats(),
+  const [requests, tours] = await Promise.all([
     repository.listRequests(),
     repository.listTours(),
   ]);
+  const stats = await repository.getDashboardStats(requests);
 
   const activeRequests = stats.pendingRequests + stats.revisionRequests;
   const activity = buildActivityFeed(requests);

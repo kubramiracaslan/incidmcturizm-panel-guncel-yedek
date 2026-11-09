@@ -512,6 +512,19 @@ export class SupabaseDataRepository implements DataRepository {
     return rows.map((row) => mapTourRow(row));
   }
 
+  async listTourRegions(): Promise<string[]> {
+    const { data, error } = await supabase.from("tours").select("region");
+    if (error) throw error;
+
+    const unique = new Set<string>();
+    for (const row of data ?? []) {
+      const region = (row.region as string | null)?.trim();
+      if (region) unique.add(region);
+    }
+
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "tr"));
+  }
+
   async getTourById(id: string): Promise<Tour | null> {
     const { data: tourRow, error } = await supabase
       .from("tours")
@@ -564,7 +577,7 @@ export class SupabaseDataRepository implements DataRepository {
         title: input.title,
         title_en: input.titleEn || null,
         slug: input.slug,
-        region: input.region,
+        region: input.region.trim(),
         duration: input.duration,
         duration_en: input.durationEn || null,
         base_price: input.basePrice,
@@ -846,7 +859,7 @@ export class SupabaseDataRepository implements DataRepository {
       .update({
         title: input.title,
         title_en: input.titleEn || null,
-        region: input.region,
+        region: input.region.trim(),
         duration: input.duration,
         duration_en: input.durationEn || null,
         base_price: input.basePrice,
@@ -1797,8 +1810,8 @@ export class SupabaseDataRepository implements DataRepository {
     return mapAgencyRow(data as AcentalarRow);
   }
 
-  async getDashboardStats(filters?: RequestFilters): Promise<DashboardStats> {
-    const scoped = await this.listRequests(filters);
+  async getDashboardStats(requests: TeklifTalebi[], filters?: RequestFilters): Promise<DashboardStats> {
+    const scoped = requests;
     const client = await createSupabaseServerClient();
     const revenueRows = await fetchApprovedRevenueRows(client, filters);
     const revenueByCurrency = revenueRows.reduce<{ currency: Currency; amount: number }[]>(

@@ -17,6 +17,7 @@ export function TourCard({ tour, basePath }: TourCardProps) {
           src={tour.coverImage}
           alt={tour.name}
           fill
+          sizes="(min-width:1280px) 33vw, (min-width:768px) 50vw, 100vw"
           unoptimized
           className="object-cover transition-transform duration-700 group-hover:scale-105"
         />

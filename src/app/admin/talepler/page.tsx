@@ -19,10 +19,11 @@ interface PageProps {
 export default async function AdminRequestsPage({ searchParams }: PageProps) {
   const { status } = await searchParams;
 
-  const stats = await repository.getDashboardStats();
-  const requests = await repository.listRequests({
-    status: status as RequestStatus | undefined,
-  });
+  const [allRequests, requests] = await Promise.all([
+    repository.listRequests(),
+    repository.listRequests({ status: status as RequestStatus | undefined }),
+  ]);
+  const stats = await repository.getDashboardStats(allRequests);
 
   return (
     <AdminShell title="Talepler">

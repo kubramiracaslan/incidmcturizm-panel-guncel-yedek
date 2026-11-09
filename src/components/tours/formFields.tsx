@@ -28,9 +28,12 @@ interface TextInputProps extends LabelProps {
   disabled?: boolean;
   min?: string;
   max?: string;
+  /** `<datalist>` id'si — yazarken mevcut değerleri öneri olarak gösterir,
+   * girilen değeri sınırlamaz (serbest metin kalır). */
+  list?: string;
 }
 
-export function TextInput({ label, hint, error, value, onChange, placeholder, type = "text", disabled, min, max }: TextInputProps) {
+export function TextInput({ label, hint, error, value, onChange, placeholder, type = "text", disabled, min, max, list }: TextInputProps) {
   return (
     <div>
       <FieldLabel label={label} hint={hint} />
@@ -42,6 +45,7 @@ export function TextInput({ label, hint, error, value, onChange, placeholder, ty
         disabled={disabled}
         min={min}
         max={max}
+        list={list}
         className={`${baseInputClass} ${error ? "border-error focus:border-error focus:ring-error/50" : ""} ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-error">{error}</p>}

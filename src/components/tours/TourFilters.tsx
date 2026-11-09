@@ -4,10 +4,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Icon } from "@/components/ui/Icon";
 
-const regions = ["Balkanlar", "Avrupa", "Asya", "Afrika", "Avustralya"];
+interface TourFiltersProps {
+  basePath: string;
+  resultCount: number;
+  /** `tours.region`'daki dolu/tekrarsız değerler, alfabetik sıralı — bkz.
+   * `repository.listTourRegions()`. Sabit bir liste değil, turlardan
+   * türetiliyor ki filtre seçenekleri gerçek verideki değerlerle her zaman
+   * birebir eşleşsin. */
+  regions: string[];
+}
 
 /** Tek satırlık yatay filtre çubuğu — turların üstünde, tam genişlikte. */
-export function TourFilters({ basePath, resultCount }: { basePath: string; resultCount: number }) {
+export function TourFilters({ basePath, resultCount, regions }: TourFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();

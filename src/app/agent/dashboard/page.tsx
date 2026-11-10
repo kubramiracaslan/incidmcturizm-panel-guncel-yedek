@@ -20,11 +20,16 @@ export default async function AgentDashboardPage() {
   const user = await getSession();
   if (!user || !user.agencyId) redirect("/login");
 
-  const [requests, tours] = await Promise.all([
+  const [requests, tours, revenueByCurrency] = await Promise.all([
     repository.listRequests({ agencyId: user.agencyId }),
     repository.listTours(),
+    repository.getApprovedRevenueByCurrency({ agencyId: user.agencyId }),
   ]);
-  const stats = await repository.getDashboardStats(requests, { agencyId: user.agencyId });
+  const stats = await repository.getDashboardStats(
+    requests,
+    { agencyId: user.agencyId },
+    revenueByCurrency,
+  );
 
   const activity = buildActivityFeed(requests);
   const popularTours = tours.filter((tour) => tour.isPopular).slice(0, 4);

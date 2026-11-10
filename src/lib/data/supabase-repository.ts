@@ -288,6 +288,30 @@ async function fetchApprovedRevenueRows(
   return rows;
 }
 
+/** Groups `fetchApprovedRevenueRows`' flat rows into one total per
+ * currency — shared by `getApprovedRevenueByCurrency` and (when no
+ * pre-fetched result is passed in) `getDashboardStats`'s own fallback. */
+function revenueRowsByCurrency(
+  rows: ApprovedRevenueRow[],
+): { currency: Currency; amount: number }[] {
+  return rows.reduce<{ currency: Currency; amount: number }[]>((acc, row) => {
+    if (!CURRENCIES.has(row.currency)) {
+      console.error(
+        `[getDashboardStats] Tanınmayan para birimi "${row.currency}" (talep id=${row.id}, amount=${row.amount}) - toplamdan hariç tutuldu.`,
+      );
+      return acc;
+    }
+    const currency = row.currency as Currency;
+    const existing = acc.find((entry) => entry.currency === currency);
+    if (existing) {
+      existing.amount += Number(row.amount);
+    } else {
+      acc.push({ currency, amount: Number(row.amount) });
+    }
+    return acc;
+  }, []);
+}
+
 interface SupabaseBlogPostRow {
   id: string;
   slug: string;
@@ -1810,35 +1834,28 @@ export class SupabaseDataRepository implements DataRepository {
     return mapAgencyRow(data as AcentalarRow);
   }
 
-  async getDashboardStats(requests: TeklifTalebi[], filters?: RequestFilters): Promise<DashboardStats> {
-    const scoped = requests;
+  async getApprovedRevenueByCurrency(
+    filters?: RequestFilters,
+  ): Promise<{ currency: Currency; amount: number }[]> {
     const client = await createSupabaseServerClient();
     const revenueRows = await fetchApprovedRevenueRows(client, filters);
-    const revenueByCurrency = revenueRows.reduce<{ currency: Currency; amount: number }[]>(
-      (acc, row) => {
-        if (!CURRENCIES.has(row.currency)) {
-          console.error(
-            `[getDashboardStats] Tanınmayan para birimi "${row.currency}" (talep id=${row.id}, amount=${row.amount}) - toplamdan hariç tutuldu.`,
-          );
-          return acc;
-        }
-        const currency = row.currency as Currency;
-        const existing = acc.find((entry) => entry.currency === currency);
-        if (existing) {
-          existing.amount += Number(row.amount);
-        } else {
-          acc.push({ currency, amount: Number(row.amount) });
-        }
-        return acc;
-      },
-      [],
-    );
+    return revenueRowsByCurrency(revenueRows);
+  }
+
+  async getDashboardStats(
+    requests: TeklifTalebi[],
+    filters?: RequestFilters,
+    revenueByCurrency?: { currency: Currency; amount: number }[],
+  ): Promise<DashboardStats> {
+    const scoped = requests;
+    const resolvedRevenueByCurrency =
+      revenueByCurrency ?? (await this.getApprovedRevenueByCurrency(filters));
     return {
       totalRequests: scoped.length,
       pendingRequests: scoped.filter((r) => r.status === "beklemede").length,
       approvedTours: scoped.filter((r) => r.status === "onaylandi").length,
       revisionRequests: scoped.filter((r) => r.status === "revize_istendi").length,
-      revenueByCurrency,
+      revenueByCurrency: resolvedRevenueByCurrency,
     };
   }
 }

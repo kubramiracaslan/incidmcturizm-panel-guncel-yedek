@@ -5,6 +5,7 @@ import type {
   BlogPost,
   CreateRequestInput,
   CreateTourInput,
+  Currency,
   DashboardStats,
   HomePageOverview,
   Partner,
@@ -134,6 +135,19 @@ export interface DataRepository {
    * burada tekrar `listRequests()` çağrılmaz, sayfanın kendi talep
    * verisiyle aynı sorgu iki kez çalışmaz (bkz. admin/agent dashboard
    * sayfaları). `filters` sadece ciro toplamının (`fetchApprovedRevenueRows`)
-   * doğru kapsamda kalması için kullanılır. */
-  getDashboardStats(requests: TeklifTalebi[], filters?: RequestFilters): Promise<DashboardStats>;
+   * doğru kapsamda kalması için kullanılır — `revenueByCurrency` zaten
+   * (örn. çağıranın kendi `Promise.all`'ı içinde) hazırsa, bu metot ciro
+   * sorgusunu tekrar çalıştırmadan onu doğrudan kullanır. */
+  getDashboardStats(
+    requests: TeklifTalebi[],
+    filters?: RequestFilters,
+    revenueByCurrency?: { currency: Currency; amount: number }[],
+  ): Promise<DashboardStats>;
+  /** `getDashboardStats`'ın ciro toplamı kısmı — `requests`e bağımlı
+   * olmadığı için çağıran bunu `listRequests`/`listTours` ile aynı
+   * `Promise.all` içine alıp sonucu `getDashboardStats`'a verebilir, böylece
+   * ciro sorgusu diğerlerinden sonra sıraya girmez. */
+  getApprovedRevenueByCurrency(
+    filters?: RequestFilters,
+  ): Promise<{ currency: Currency; amount: number }[]>;
 }

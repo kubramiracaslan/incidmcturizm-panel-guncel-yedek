@@ -16,6 +16,7 @@ interface Values extends BlogPostFormInput {
   slugTouched: boolean;
   tags: string[];
   isFeatured: boolean;
+  isPublished: boolean;
 }
 
 function todayIsoDate(): string {
@@ -37,6 +38,7 @@ function toFormValues(post?: BlogPost): Values {
       content: "",
       tags: [],
       isFeatured: false,
+      isPublished: true,
     };
   }
   return {
@@ -52,6 +54,7 @@ function toFormValues(post?: BlogPost): Values {
     content: post.contentHtml,
     tags: post.tags,
     isFeatured: post.isFeatured,
+    isPublished: post.isPublished,
   };
 }
 
@@ -233,6 +236,7 @@ function BlogPostForm(props: BlogPostFormProps) {
     formData.set("heroImagePath", heroImagePath);
     formData.set("authorImagePath", authorImagePath);
     formData.set("isFeatured", String(values.isFeatured));
+    formData.set("isPublished", String(values.isPublished));
     values.tags.forEach((tag) => formData.append("tags", tag));
 
     startTransition(async () => {
@@ -367,15 +371,26 @@ function BlogPostForm(props: BlogPostFormProps) {
                   onChange={(v) => set("content", v)}
                 />
 
-                <label className="flex items-center gap-2 text-sm text-on-surface">
-                  <input
-                    type="checkbox"
-                    checked={values.isFeatured}
-                    onChange={(e) => set("isFeatured", e.target.checked)}
-                    className="h-4 w-4 rounded border-outline-variant"
-                  />
-                  Öne Çıkan
-                </label>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm text-on-surface">
+                    <input
+                      type="checkbox"
+                      checked={values.isPublished}
+                      onChange={(e) => set("isPublished", e.target.checked)}
+                      className="h-4 w-4 rounded border-outline-variant"
+                    />
+                    Yayınla
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-on-surface">
+                    <input
+                      type="checkbox"
+                      checked={values.isFeatured}
+                      onChange={(e) => set("isFeatured", e.target.checked)}
+                      className="h-4 w-4 rounded border-outline-variant"
+                    />
+                    Öne Çıkan
+                  </label>
+                </div>
 
                 {formError && (
                   <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">

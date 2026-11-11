@@ -36,7 +36,15 @@ import type {
   UpdateHomeHeroInput,
   UpdateHomeLogoInput,
 } from "./repository";
-import { supabase, siteImageUrl, tourImageUrl, blogImageUrl } from "@/lib/supabase/client";
+import {
+  supabase,
+  siteImageUrl,
+  tourImageUrl,
+  blogImageUrl,
+  blogImageBucket,
+  blogImageFilename,
+  type BlogImageType,
+} from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AgencyProfileInput } from "@/lib/validation/agency";
@@ -337,13 +345,13 @@ function mapBlogPostRow(row: SupabaseBlogPostRow): BlogPost {
     title: row.title,
     excerpt: row.excerpt ?? "",
     categoryName: row.category_name ?? "",
-    heroImage: blogImageUrl(row.hero_image),
+    heroImage: blogImageUrl("hero", row.hero_image),
     heroImagePath: row.hero_image ?? "",
     publishedAt: row.published_at ?? "",
     readTime: row.read_time ?? 0,
     authorName: row.author_name ?? "",
     authorTitle: row.author_title ?? "",
-    authorImage: row.author_image ? blogImageUrl(row.author_image) : null,
+    authorImage: row.author_image ? blogImageUrl("author", row.author_image) : null,
     authorImagePath: row.author_image ?? "",
     tags: (row.tags ?? []).map((t) => t.name),
     contentHtml: (row.content_sections ?? []).map((s) => s.content).join("\n"),
@@ -355,24 +363,20 @@ function mapBlogPostRow(row: SupabaseBlogPostRow): BlogPost {
 const BLOG_POST_COLUMNS =
   "id, slug, title, excerpt, category_name, hero_image, published_at, read_time, author_name, author_title, author_image, tags, content_sections, is_published, is_featured";
 
-/** Splits a `blogImageUrl()`-style stored path ("bucket/rest/of/path") into its bucket and path parts. */
-function splitBlogImagePath(pathWithBucket: string): { bucket: string; path: string } | null {
-  const [bucket, ...rest] = pathWithBucket.split("/");
-  const path = rest.join("/");
-  if (!bucket || !path) return null;
-  return { bucket, path };
-}
-
-/** Best-effort deletes `previousPath` from storage if it was replaced by a new upload (not still referenced by `keptPaths`). */
+/** Best-effort deletes the previous hero/author image file from storage
+ * when it was replaced by a new upload this update. `previousValue` may be
+ * a bare filename (current convention) or an older subfoldered/
+ * bucket-prefixed value — only its last `/`-segment is ever compared or
+ * deleted, via `blogImageFilename()`. */
 async function removeBlogImageIfReplaced(
   client: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  previousPath: string | null,
-  keptPaths: string[],
+  type: BlogImageType,
+  previousValue: string | null,
+  nextValue: string,
 ): Promise<void> {
-  if (!previousPath || keptPaths.includes(previousPath)) return;
-  const parsed = splitBlogImagePath(previousPath);
-  if (!parsed) return;
-  const { error } = await client.storage.from(parsed.bucket).remove([parsed.path]);
+  const previousFilename = blogImageFilename(previousValue);
+  if (!previousFilename || previousFilename === blogImageFilename(nextValue)) return;
+  const { error } = await client.storage.from(blogImageBucket(type)).remove([previousFilename]);
   if (error) console.error("[updateBlogPost] eski görsel silinemedi:", error);
 }
 
@@ -1067,8 +1071,16 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
   }
 
+  /**
+   * Admin panel's own list — must see drafts (`is_published = false`) too,
+   * not just what the public site shows. Uses the service-role client
+   * rather than the shared anon `supabase` (RLS on `blog_posts` scopes
+   * anon SELECT to published rows only, which is why drafts used to
+   * silently disappear from this list even though the row existed).
+   */
   async listBlogPosts(): Promise<BlogPost[]> {
-    const { data, error } = await supabase
+    const client = await createSupabaseAdminClient();
+    const { data, error } = await client
       .from("blog_posts")
       .select(BLOG_POST_COLUMNS)
       .order("published_at", { ascending: false });
@@ -1076,8 +1088,11 @@ export class SupabaseDataRepository implements DataRepository {
     return (data ?? []).map((row) => mapBlogPostRow(row as SupabaseBlogPostRow));
   }
 
+  /** Same reasoning as `listBlogPosts` — the admin detail/edit view needs
+   * to read a draft post too, which the anon client's RLS would hide. */
   async getBlogPostById(id: string): Promise<BlogPost | null> {
-    const { data, error } = await supabase
+    const client = await createSupabaseAdminClient();
+    const { data, error } = await client
       .from("blog_posts")
       .select(
         "id, slug, title, excerpt, category_name, hero_image, published_at, read_time, author_name, author_title, author_image, tags, content_sections, is_published, is_featured",
@@ -1094,8 +1109,17 @@ export class SupabaseDataRepository implements DataRepository {
    * `category_slug` is a NOT NULL column that no read query selects and no
    * form field exposes — confirmed against live TEST data (Adım 0) — so it's
    * derived silently from `categoryName` rather than surfaced to the admin.
+   *
+   * `published_at` falls back to today when publishing with no date set —
+   * the form always pre-fills a date, but this keeps a blank date from
+   * reaching `new Date("")` (an Invalid Date, which `.toISOString()`
+   * throws on) if that ever stops being true.
    */
   private blogPostPayload(input: BlogPostInput) {
+    const publishedAt =
+      input.isPublished && !input.publishedAt
+        ? new Date().toISOString()
+        : new Date(input.publishedAt).toISOString();
     return {
       slug: input.slug,
       title: input.title,
@@ -1103,7 +1127,7 @@ export class SupabaseDataRepository implements DataRepository {
       category_name: input.categoryName,
       category_slug: generateSlug(input.categoryName),
       hero_image: input.heroImagePath,
-      published_at: new Date(input.publishedAt).toISOString(),
+      published_at: publishedAt,
       read_time: input.readTime,
       author_name: input.authorName,
       author_title: input.authorTitle,
@@ -1111,6 +1135,7 @@ export class SupabaseDataRepository implements DataRepository {
       tags: input.tags.map((name) => ({ name })),
       content_sections: [{ type: "paragraph", content: input.content }],
       is_featured: input.isFeatured,
+      is_published: input.isPublished,
     };
   }
 
@@ -1119,7 +1144,7 @@ export class SupabaseDataRepository implements DataRepository {
 
     const { data, error } = await client
       .from("blog_posts")
-      .insert({ ...this.blogPostPayload(input), is_published: false })
+      .insert(this.blogPostPayload(input))
       .select(BLOG_POST_COLUMNS)
       .single();
     if (error) throw error;
@@ -1131,7 +1156,7 @@ export class SupabaseDataRepository implements DataRepository {
    * Updates a blog post's fields by id. When a hero/author image path
    * changed, the previous file is deleted from storage once the row update
    * succeeds — same best-effort cleanup as `updateService`, adapted for
-   * `blogImageUrl()`'s bucket-prefixed path convention.
+   * the bare-filename, type-scoped-bucket convention (`blogImageBucket()`).
    */
   async updateBlogPost(id: string, input: BlogPostInput): Promise<BlogPost> {
     const client = await createSupabaseAdminClient();
@@ -1152,9 +1177,8 @@ export class SupabaseDataRepository implements DataRepository {
       .single();
     if (error) throw error;
 
-    for (const previousPath of [previous.hero_image, previous.author_image]) {
-      await removeBlogImageIfReplaced(client, previousPath, [input.heroImagePath, input.authorImagePath]);
-    }
+    await removeBlogImageIfReplaced(client, "hero", previous.hero_image, input.heroImagePath);
+    await removeBlogImageIfReplaced(client, "author", previous.author_image, input.authorImagePath);
 
     return mapBlogPostRow(data as SupabaseBlogPostRow);
   }
@@ -1174,10 +1198,14 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
 
     const previous = existing as { hero_image: string | null; author_image: string | null };
-    for (const path of [previous.hero_image, previous.author_image]) {
-      const parsed = path ? splitBlogImagePath(path) : null;
-      if (!parsed) continue;
-      const { error: removeError } = await client.storage.from(parsed.bucket).remove([parsed.path]);
+    const images: { type: BlogImageType; value: string | null }[] = [
+      { type: "hero", value: previous.hero_image },
+      { type: "author", value: previous.author_image },
+    ];
+    for (const { type, value } of images) {
+      const filename = blogImageFilename(value);
+      if (!filename) continue;
+      const { error: removeError } = await client.storage.from(blogImageBucket(type)).remove([filename]);
       if (removeError) console.error("[deleteBlogPost] görsel silinemedi:", removeError);
     }
   }

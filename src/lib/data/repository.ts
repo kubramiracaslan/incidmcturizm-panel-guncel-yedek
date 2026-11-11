@@ -73,6 +73,7 @@ export interface BlogPostInput {
   tags: string[];
   content: string;
   isFeatured: boolean;
+  isPublished: boolean;
 }
 
 /**

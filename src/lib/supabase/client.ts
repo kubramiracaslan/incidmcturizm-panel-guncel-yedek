@@ -31,11 +31,37 @@ export function tourImageUrl(path: string | null | undefined): string {
   return supabase.storage.from(TOUR_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-/** Blog images: the bucket name is stored as the first path segment (e.g. "blog-post-images/xxx.jpg"). */
-export function blogImageUrl(pathWithBucket: string | null | undefined): string {
-  if (!pathWithBucket) return "";
-  const [bucket, ...rest] = pathWithBucket.split("/");
-  const path = rest.join("/");
-  if (!bucket || !path) return "";
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+/**
+ * Blog images: bucket depends on the image's *type* (hero vs author), not
+ * on the stored value — confirmed against the live site's own reader,
+ * which resolves them the same way (fixed bucket per type, filename-only
+ * lookup) rather than storing the bucket in the value.
+ */
+export type BlogImageType = "hero" | "author";
+export const BLOG_IMAGE_TYPES: readonly BlogImageType[] = ["hero", "author"];
+
+const BLOG_IMAGE_BUCKETS: Record<BlogImageType, string> = {
+  hero: "blog-post-images",
+  author: "blog-author-images",
+};
+
+export function blogImageBucket(type: BlogImageType): string {
+  return BLOG_IMAGE_BUCKETS[type];
+}
+
+/** Blog image values are stored as a bare filename (e.g. "1731234567.jpg").
+ * Older rows may still hold a subfoldered ("hero/xxx.jpg") or even
+ * bucket-prefixed ("blog-post-images/hero/xxx.jpg") value from before this
+ * convention — only the last `/`-segment is ever the real filename, so
+ * this strips down to that regardless of how many prefixes are present. */
+export function blogImageFilename(value: string | null | undefined): string {
+  if (!value) return "";
+  const segments = value.split("/");
+  return segments[segments.length - 1] ?? "";
+}
+
+export function blogImageUrl(type: BlogImageType, value: string | null | undefined): string {
+  const filename = blogImageFilename(value);
+  if (!filename) return "";
+  return supabase.storage.from(blogImageBucket(type)).getPublicUrl(filename).data.publicUrl;
 }

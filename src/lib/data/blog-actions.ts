@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { BLOG_IMAGE_TYPES, blogImageBucket, type BlogImageType } from "@/lib/supabase/client";
 import { repository } from "./index";
 import type { BlogPostInput } from "./repository";
 import { validateBlogPostInput, type BlogPostFieldErrors } from "@/lib/validation/blog";
@@ -25,18 +26,15 @@ export interface UploadBlogImageResult {
   error: string | null;
 }
 
-const VALID_IMAGE_TYPES = ["hero", "author"] as const;
-type BlogImageType = (typeof VALID_IMAGE_TYPES)[number];
-const BLOG_IMAGES_BUCKET = "blog-post-images";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
- * Uploads one blog image to the `blog-post-images` bucket, under a
- * `{imageType}/{timestamp}.{ext}` path. Unlike `uploadSiteImageAction`/
- * `uploadTourImageAction` (which return a bare path read back through a
- * fixed-bucket constant), the returned `path` here is bucket-prefixed
- * (`"blog-post-images/hero/xxx.jpg"`) to match `blogImageUrl()`'s
- * "bucket name is the first path segment" read convention.
+ * Uploads one blog image to its type's bucket (`blog-post-images` for
+ * hero, `blog-author-images` for author — see `blogImageBucket()`), as a
+ * bare filename with no subfolder. The returned `path` is that bare
+ * filename (e.g. `"1731234567.jpg"`) — matching the live site's own
+ * reader, which looks up images by filename in a fixed bucket per type
+ * rather than reading the bucket from the stored value.
  */
 export async function uploadBlogImageAction(formData: FormData): Promise<UploadBlogImageResult> {
   const user = await getSession();
@@ -50,7 +48,7 @@ export async function uploadBlogImageAction(formData: FormData): Promise<UploadB
   if (!(file instanceof File) || file.size === 0) {
     return { path: null, url: null, error: "Geçerli bir dosya seçilmedi." };
   }
-  if (!VALID_IMAGE_TYPES.includes(imageType as BlogImageType)) {
+  if (!BLOG_IMAGE_TYPES.includes(imageType as BlogImageType)) {
     return { path: null, url: null, error: "Geçersiz görsel tipi." };
   }
   if (!file.type.startsWith("image/")) {
@@ -60,11 +58,13 @@ export async function uploadBlogImageAction(formData: FormData): Promise<UploadB
     return { path: null, url: null, error: "Dosya boyutu en fazla 5MB olabilir." };
   }
 
+  const type = imageType as BlogImageType;
+  const bucket = blogImageBucket(type);
   const client = await createSupabaseAdminClient();
   const ext = file.name.split(".").pop() || "jpg";
-  const path = `${imageType}/${Date.now()}.${ext}`;
+  const path = `${Date.now()}.${ext}`;
 
-  const { error } = await client.storage.from(BLOG_IMAGES_BUCKET).upload(path, file, {
+  const { error } = await client.storage.from(bucket).upload(path, file, {
     contentType: file.type || undefined,
   });
   if (error) {
@@ -72,8 +72,8 @@ export async function uploadBlogImageAction(formData: FormData): Promise<UploadB
     return { path: null, url: null, error: "Görsel yüklenirken bir hata oluştu. Lütfen tekrar deneyin." };
   }
 
-  const { data } = client.storage.from(BLOG_IMAGES_BUCKET).getPublicUrl(path);
-  return { path: `${BLOG_IMAGES_BUCKET}/${path}`, url: data.publicUrl, error: null };
+  const { data } = client.storage.from(bucket).getPublicUrl(path);
+  return { path, url: data.publicUrl, error: null };
 }
 
 export interface BlogPostActionResult {
@@ -112,8 +112,12 @@ function parseBlogPostFormData(formData: FormData): BlogPostFormParseResult {
 
   const tags = formData.getAll("tags").map((t) => String(t));
   const isFeatured = formData.get("isFeatured") === "true";
+  const isPublished = formData.get("isPublished") === "true";
 
-  return { ok: true, input: { ...validation.value, heroImagePath, authorImagePath, tags, isFeatured } };
+  return {
+    ok: true,
+    input: { ...validation.value, heroImagePath, authorImagePath, tags, isFeatured, isPublished },
+  };
 }
 
 export async function createBlogPostAction(formData: FormData): Promise<BlogPostActionResult> {

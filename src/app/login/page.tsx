@@ -25,6 +25,7 @@ function LoginForm() {
   // başarı mesajı göstermeye yarıyor (bkz. signUpAction'daki emailRedirectTo).
   const searchParams = useSearchParams();
   const emailConfirmed = searchParams.get("confirmed") === "1";
+  const passwordUpdated = searchParams.get("sifre") === "yenilendi";
 
   useEffect(() => {
     if (state.redirectTo) {
@@ -86,6 +87,13 @@ function LoginForm() {
             </div>
           )}
 
+          {passwordUpdated && (
+            <div className="mb-5 flex items-start gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-3 text-sm text-secondary">
+              <Icon name="check_circle" className="mt-0.5 flex-shrink-0" />
+              <span>Şifreniz güncellendi, giriş yapabilirsiniz.</span>
+            </div>
+          )}
+
           <form action={formAction} className="space-y-5">
             <div>
               <label
@@ -133,6 +141,11 @@ function LoginForm() {
                   className="w-full rounded-lg border border-outline-variant bg-surface-deep py-3 pl-10 pr-4 text-body-lg text-on-surface transition-all placeholder:text-on-surface-variant/50 focus:border-mint-glow focus:outline-none focus:ring-1 focus:ring-mint-glow"
                 />
               </div>
+              <p className="mt-2 text-right">
+                <Link href="/sifremi-unuttum" className="text-sm text-secondary hover:underline">
+                  Şifremi unuttum
+                </Link>
+              </p>
             </div>
 
             {state.error && (

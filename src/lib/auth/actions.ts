@@ -11,6 +11,7 @@ import {
   type AgencyRegistrationFieldErrors,
   type AgencyRegistrationInput,
 } from "@/lib/validation/agency-registration";
+import { AGENCY_EMAIL_PATTERN } from "@/lib/validation/agency";
 import { validateAdminProfileInput, type AdminProfileFieldErrors } from "@/lib/validation/profile";
 import { validateNewPassword, validatePasswordsMatch } from "@/lib/validation/password";
 import { notifyAdminsOfNewAgency } from "@/lib/email/notifyAdmins";
@@ -64,6 +65,139 @@ export async function logoutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+export interface RequestPasswordResetFormState {
+  fieldError: string | null;
+  submitted: boolean;
+}
+
+/**
+ * "Şifremi unuttum" — e-posta kayıtlı olsun olmasın, formun gördüğü sonuç
+ * her zaman aynıdır (`submitted: true`, hiçbir hata metni yok). Supabase'in
+ * kendi `resetPasswordForEmail`'i zaten var/yok ayrımını sızdırmayacak
+ * şekilde tasarlanmış, ama buradaki HERHANGİ bir hata (rate limit dahil)
+ * de yutulur ki cevaptan hesabın var olup olmadığı hiçbir şekilde
+ * çıkarılamasın — gerçek hata sadece sunucu loguna düşer. `fieldError`
+ * sadece boş/biçimsiz e-posta gibi saf doğrulama hatalarında kullanılır,
+ * bunlar bir hesabın var olup olmadığını sızdırmaz.
+ */
+export async function requestPasswordResetAction(
+  _prevState: RequestPasswordResetFormState,
+  formData: FormData,
+): Promise<RequestPasswordResetFormState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) {
+    return { fieldError: "E-posta zorunludur.", submitted: false };
+  }
+  if (!AGENCY_EMAIL_PATTERN.test(email)) {
+    return { fieldError: "Lütfen geçerli bir e-posta adresi girin.", submitted: false };
+  }
+
+  // `PANEL_BASE_URL` tanımsızsa `redirectTo` hiç eklenmiyor — Supabase'in
+  // kendi Site URL'ine düşer (bkz. signUpAction'daki aynı davranış). Bu
+  // akışta `redirectTo`'nun `/auth/callback`'e işaret etmesi şart: aksi
+  // halde PKCE `code`'u hiçbir zaman bu panelin oturum-değiştirme kodunu
+  // çalıştıramaz (bkz. bu değişiklikle verilen "Supabase'de elle
+  // yapılması gerekenler" listesi).
+  const redirectTo = panelUrl("/auth/callback");
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    ...(redirectTo ? { redirectTo } : {}),
+  });
+  if (error) {
+    console.error("[requestPasswordResetAction] Supabase error:", error.message);
+  }
+
+  return { fieldError: null, submitted: true };
+}
+
+export interface UpdatePasswordFieldErrors {
+  newPassword?: string;
+  confirmPassword?: string;
+}
+
+export interface UpdatePasswordFormState {
+  error: string | null;
+  fieldErrors: UpdatePasswordFieldErrors;
+  /** Sadece oturum hiç yoksa/süresi dolmuşsa true — formda "yeni bağlantı
+   * iste" linkinin gösterilip gösterilmeyeceğine bu karar verir (başka bir
+   * güncelleme hatasında aynı formu tekrar denemek daha doğru olur). */
+  expired?: boolean;
+}
+
+/**
+ * `/sifre-yenile` formunun sunucu tarafı. Oturum, `/auth/callback`'in
+ * `exchangeCodeForSession` ile kurduğu kurtarma (recovery) oturumu —
+ * `getSession()` DEĞİL, çağıranın app_metadata.role / acentalar onay
+ * durumuna hiç bakmayan ham `supabase.auth.getUser()` kontrolü kullanılıyor:
+ * askıda/reddedilmiş bir acente de şifresini yenileyebilmeli, asıl giriş
+ * kısıtlaması `loginAction` tarafında aynen kalıyor.
+ */
+export async function updatePasswordAction(
+  _prevState: UpdatePasswordFormState,
+  formData: FormData,
+): Promise<UpdatePasswordFormState> {
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  const newPasswordError = validateNewPassword(newPassword);
+  const matchError = newPasswordError
+    ? undefined
+    : validatePasswordsMatch(newPassword, confirmPassword);
+  if (newPasswordError || matchError) {
+    return {
+      error: null,
+      fieldErrors: {
+        ...(newPasswordError ? { newPassword: newPasswordError } : {}),
+        ...(matchError ? { confirmPassword: matchError } : {}),
+      },
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: getUserError } = await supabase.auth.getUser();
+  if (getUserError || !userData.user) {
+    return {
+      error: "Bağlantının süresi dolmuş veya geçersiz. Lütfen yeni bir bağlantı isteyin.",
+      fieldErrors: {},
+      expired: true,
+    };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+  if (updateError) {
+    if (updateError.code === "same_password") {
+      return {
+        error: null,
+        fieldErrors: {
+          newPassword: "Yeni şifre, mevcut şifrenizle aynı olamaz. Lütfen farklı bir şifre girin.",
+        },
+      };
+    }
+    if (updateError.code === "weak_password") {
+      return {
+        error: null,
+        fieldErrors: {
+          newPassword: "Şifre yeterince güçlü değil. Lütfen daha güçlü bir şifre seçin.",
+        },
+      };
+    }
+    return {
+      error: "Şifre güncellenirken bir hata oluştu. Lütfen tekrar deneyin.",
+      fieldErrors: {},
+    };
+  }
+
+  // `signOut()` bu route segmentinin oturumunu geçersizleştirir; redirectTo
+  // alanıyla istemciye bırakmak yerine burada doğrudan redirect() çağrılıyor
+  // ki /sifre-yenile, oturumu kapanmış haliyle "bağlantı süresi dolmuş"
+  // ekranını hiç render etmesin (bkz. bu değişiklikle giderilen kusur).
+  // loginAction'daki proxy.ts kısıtlaması burada geçerli değil — proxy
+  // matcher'ı /sifre-yenile'yi kapsamıyor.
+  await supabase.auth.signOut();
+  redirect("/login?sifre=yenilendi");
 }
 
 export type SignUpFieldErrors = AgencyRegistrationFieldErrors & {

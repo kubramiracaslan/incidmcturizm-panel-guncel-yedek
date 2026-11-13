@@ -96,6 +96,7 @@ export interface DataRepository {
   getTourForEdit(id: string): Promise<TourEditData | null>;
   updateTour(id: string, input: UpdateTourInput): Promise<{ id: string; slug: string }>;
   deleteTour(id: string): Promise<void>;
+  setTourActive(tourId: string, isActive: boolean): Promise<void>;
   /** Grup fiyatları — RLS admin veya onaylı acenteye göre filtreler; bu
    * yüzden anon değil, çağıranın kendi oturumuyla (authenticated) okunur. */
   getTourGroupPrices(tourId: string): Promise<TourGroupPriceRow[]>;

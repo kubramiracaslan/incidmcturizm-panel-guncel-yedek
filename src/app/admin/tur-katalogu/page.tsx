@@ -26,7 +26,7 @@ export default async function AdminTourCatalogPage({ searchParams }: PageProps) 
       <TourFilters basePath="/admin/tur-katalogu" resultCount={tours.length} regions={regions} />
       <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
         {tours.map((tour) => (
-          <TourCard key={tour.id} tour={tour} basePath="/admin/tur-katalogu" />
+          <TourCard key={tour.id} tour={tour} basePath="/admin/tur-katalogu" showActiveBadge />
         ))}
       </div>
     </AdminShell>

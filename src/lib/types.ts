@@ -29,6 +29,7 @@ export interface Tour {
   excludes: string[];
   importantNotes: string[];
   isPopular: boolean;
+  isActive: boolean;
 }
 
 export interface CreateTourHighlightInput {
@@ -411,4 +412,8 @@ export interface RequestFilters {
 export interface TourFilters {
   region?: string;
   search?: string;
+  /** true ise sadece `is_active = true` turlar döner (varsayılan: hepsi —
+   * admin tarafının pasif turları da görmesi gerektiği için mevcut
+   * çağıranların davranışı bu alan eklenirken değişmedi). */
+  onlyActive?: boolean;
 }

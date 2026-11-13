@@ -7,9 +7,12 @@ import { formatMoney } from "@/lib/format";
 interface TourCardProps {
   tour: Tour;
   basePath: string;
+  /** Sadece admin tur kataloğu kartlarında `true` geçilir — acente
+   * kataloğu pasif turu zaten hiç almadığı için bu prop'u kullanmaz. */
+  showActiveBadge?: boolean;
 }
 
-export function TourCard({ tour, basePath }: TourCardProps) {
+export function TourCard({ tour, basePath, showActiveBadge }: TourCardProps) {
   return (
     <div className="group relative flex h-[420px] flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container transition-all hover:-translate-y-0.5 hover:border-mint-glow/50 hover:shadow-[0_0_15px_rgba(78,222,163,0.2)]">
       <div className="absolute inset-0 z-0">
@@ -30,9 +33,16 @@ export function TourCard({ tour, basePath }: TourCardProps) {
       </div>
 
       <div className="relative z-10 flex justify-between p-4">
-        <span className="rounded-full border border-outline-variant/30 bg-surface/50 px-3 py-1 text-[10px] font-label-sm uppercase tracking-wider text-on-surface backdrop-blur-md">
-          {tour.region}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-outline-variant/30 bg-surface/50 px-3 py-1 text-[10px] font-label-sm uppercase tracking-wider text-on-surface backdrop-blur-md">
+            {tour.region}
+          </span>
+          {showActiveBadge && !tour.isActive && (
+            <span className="rounded-full bg-error px-3 py-1 text-[10px] font-label-sm font-bold uppercase tracking-wider text-primary-container shadow-lg">
+              Pasif
+            </span>
+          )}
+        </div>
         <span className="rounded-full bg-brand px-3 py-1 text-[10px] font-label-sm font-bold uppercase tracking-wider text-primary-container shadow-lg">
           {tour.nights} Gece {tour.days} Gün
         </span>

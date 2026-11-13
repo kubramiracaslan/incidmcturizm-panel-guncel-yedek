@@ -9,6 +9,7 @@ import { GroupPriceTable } from "@/components/tours/GroupPriceTable";
 import { TourProgramCard } from "@/components/tours/TourProgramCard";
 import { TourEditButton } from "@/components/tours/TourFormModal";
 import { DeleteTourButton } from "@/components/tours/DeleteTourButton";
+import { TourStatusToggleButton } from "@/components/tours/TourStatusToggleButton";
 import { repository } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 
@@ -46,6 +47,7 @@ export default async function AdminTourDetailPage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <TourStatusToggleButton id={tour.id} isActive={tour.isActive} />
           <TourEditButton tourId={tour.id} initialData={editData} existingRegions={existingRegions} />
           <DeleteTourButton id={tour.id} name={tour.name} />
         </div>

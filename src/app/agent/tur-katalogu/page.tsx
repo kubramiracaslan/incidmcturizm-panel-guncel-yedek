@@ -12,7 +12,7 @@ interface PageProps {
 export default async function AgentTourCatalogPage({ searchParams }: PageProps) {
   const { region, q } = await searchParams;
   const [tours, regions] = await Promise.all([
-    repository.listTours({ region, search: q }),
+    repository.listTours({ region, search: q, onlyActive: true }),
     repository.listTourRegions(),
   ]);
 

@@ -21,7 +21,10 @@ export default async function AgentTourDetailPage({ params }: PageProps) {
     repository.getTourById(id),
     repository.getTourForEdit(id),
   ]);
-  if (!tour) notFound();
+  // Pasif bir tur, katalogdan zaten gizlendiği gibi doğrudan adresle de
+  // açılamamalı — aksi halde acente linki paylaşıp/elle yazıp talep
+  // oluşturma formuna erişebilirdi.
+  if (!tour || !tour.isActive) notFound();
 
   const dailyPrograms = editData?.dailyPrograms ?? [];
   const groupPrices = editData?.groupPrices ?? [];

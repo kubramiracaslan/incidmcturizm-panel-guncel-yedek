@@ -105,6 +105,7 @@ interface SupabaseTourRow {
   long_description: string | null;
   hero_image_path: string | null;
   popular_tour?: boolean | null;
+  is_active?: boolean | null;
 }
 
 interface SupabaseTourContentRow {
@@ -152,6 +153,10 @@ function mapTourRow(
     // without inventing storage that doesn't exist.
     importantNotes: [],
     isPopular: row.popular_tour ?? false,
+    // `is_active` sütunu migration uygulanana kadar bazı satırlarda
+    // seçilmemiş/eksik olabilir — eksikse aktif sayılır (DB tarafındaki
+    // `not null default true` ile aynı varsayılan).
+    isActive: row.is_active ?? true,
   };
 }
 
@@ -511,12 +516,15 @@ export class SupabaseDataRepository implements DataRepository {
     let query = supabase
       .from("tours")
       .select(
-        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path, popular_tour",
+        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path, popular_tour, is_active",
       )
       .order("created_at", { ascending: false });
 
     if (filters?.region) {
       query = query.eq("region", filters.region);
+    }
+    if (filters?.onlyActive) {
+      query = query.eq("is_active", true);
     }
 
     const { data, error } = await query;
@@ -557,7 +565,7 @@ export class SupabaseDataRepository implements DataRepository {
     const { data: tourRow, error } = await supabase
       .from("tours")
       .select(
-        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path",
+        "id, slug, title, region, duration, base_price, base_price_currency, short_description, long_description, hero_image_path, is_active",
       )
       .eq("id", id)
       .maybeSingle();
@@ -1496,6 +1504,18 @@ export class SupabaseDataRepository implements DataRepository {
     }
 
     const { error } = await client.from("tours").update({ popular_tour: isPopular }).eq("id", tourId);
+    if (error) throw error;
+  }
+
+  /**
+   * Turu SİLMEDEN yayından kaldırma/yayına alma — `listTours({ onlyActive:
+   * true })` bunu filtreler, `getTourById` filtrelemez (mevcut talepler,
+   * admin düzenleme ekranı gibi pasif bir tura hâlâ id ile erişmesi
+   * gereken yerler bozulmasın diye).
+   */
+  async setTourActive(tourId: string, isActive: boolean): Promise<void> {
+    const client = await createSupabaseAdminClient();
+    const { error } = await client.from("tours").update({ is_active: isActive }).eq("id", tourId);
     if (error) throw error;
   }
 

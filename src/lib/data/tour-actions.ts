@@ -168,6 +168,31 @@ export async function updateTourAction(id: string, input: UpdateTourInput): Prom
   }
 }
 
+export interface UpdateTourStatusResult {
+  error: string | null;
+}
+
+export async function updateTourStatusAction(
+  id: string,
+  isActive: boolean,
+): Promise<UpdateTourStatusResult> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor." };
+  }
+
+  try {
+    await repository.setTourActive(id, isActive);
+    revalidatePath("/admin/tur-katalogu");
+    revalidatePath(`/admin/tur-katalogu/${id}`);
+    revalidatePath("/agent/tur-katalogu");
+    return { error: null };
+  } catch (error) {
+    console.error("[updateTourStatusAction] Supabase error:", error instanceof Error ? error.message : JSON.stringify(error));
+    return { error: "Durum güncellenirken bir hata oluştu. Lütfen tekrar deneyin." };
+  }
+}
+
 export interface DeleteTourResult {
   error: string | null;
 }

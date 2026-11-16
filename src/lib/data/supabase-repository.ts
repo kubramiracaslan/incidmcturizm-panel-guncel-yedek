@@ -35,6 +35,7 @@ import type {
   UpdateFeaturedSectionInput,
   UpdateHomeHeroInput,
   UpdateHomeLogoInput,
+  UpdatePartnerInput,
 } from "./repository";
 import {
   supabase,
@@ -1446,6 +1447,65 @@ export class SupabaseDataRepository implements DataRepository {
     if (error) throw error;
 
     return mapPartner(data as SupabasePartnerRow);
+  }
+
+  /**
+   * Updates a partner's fields by id. When a new logo was uploaded
+   * (`input.logoPath` set), the previous logo file is deleted from storage
+   * once the row update succeeds — same best-effort cleanup as
+   * `updateService`.
+   */
+  async updatePartner(id: string, input: UpdatePartnerInput): Promise<Partner> {
+    const client = await createSupabaseAdminClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("partners")
+      .select("logo_path")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+    const previousLogoPath = (existing as { logo_path: string | null } | null)?.logo_path ?? null;
+    const logoPath = input.logoPath || previousLogoPath;
+
+    const { data, error } = await client
+      .from("partners")
+      .update({
+        name: input.name,
+        website_url: input.websiteUrl || null,
+        logo_path: logoPath,
+      })
+      .eq("id", id)
+      .select("id, name, logo_path, website_url, display_order, is_active")
+      .single();
+    if (error) throw error;
+
+    if (input.logoPath && previousLogoPath && previousLogoPath !== input.logoPath) {
+      const { error: removeError } = await client.storage.from("site-images").remove([previousLogoPath]);
+      if (removeError) console.error("[updatePartner] eski logo silinemedi:", removeError);
+    }
+
+    return mapPartner(data as SupabasePartnerRow);
+  }
+
+  /** Deletes a partner and, best-effort, its logo file from storage. */
+  async deletePartner(id: string): Promise<void> {
+    const client = await createSupabaseAdminClient();
+
+    const { data: existing, error: selectError } = await client
+      .from("partners")
+      .select("logo_path")
+      .eq("id", id)
+      .single();
+    if (selectError) throw selectError;
+
+    const { error } = await client.from("partners").delete().eq("id", id);
+    if (error) throw error;
+
+    const logoPath = (existing as { logo_path: string | null } | null)?.logo_path;
+    if (logoPath) {
+      const { error: removeError } = await client.storage.from("site-images").remove([logoPath]);
+      if (removeError) console.error("[deletePartner] logo silinemedi:", removeError);
+    }
   }
 
   /**

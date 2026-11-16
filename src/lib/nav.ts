@@ -19,6 +19,7 @@ export const adminNavItems: NavItem[] = [
   { href: "/admin/turlar", label: "Turlar", icon: "map" },
   { href: "/admin/tur-katalogu", label: "Tur Kataloğu", icon: "menu_book" },
   { href: "/admin/ana-sayfa", label: "Ana Sayfa Yönetimi", icon: "web" },
+  { href: "/admin/is-ortaklari", label: "İş Ortakları Yönetimi", icon: "handshake" },
   { href: "/admin/acente-yonetimi", label: "Acente Yönetimi", icon: "admin_panel_settings" },
   { href: "/admin/blog", label: "Blog Yönetimi", icon: "article" },
   { href: "/admin/profil", label: "Profil", icon: "person" },

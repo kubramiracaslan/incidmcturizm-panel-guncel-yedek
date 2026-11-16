@@ -2,11 +2,9 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Icon } from "@/components/ui/Icon";
 import { TourCard } from "@/components/tours/TourCard";
 import { LogoEditButton } from "@/components/home/LogoEditButton";
 import { HeroEditButton } from "@/components/home/HeroEditButton";
-import { PartnerCreateButton } from "@/components/home/PartnerCreateButton";
 import { FeaturedToursEditButton } from "@/components/home/FeaturedToursEditButton";
 import { ServiceCreateButton, ServiceEditButton } from "@/components/home/ServiceFormModal";
 import { ServiceDeleteButton } from "@/components/home/ServiceDeleteButton";
@@ -289,37 +287,6 @@ export default async function AdminHomePageManagement() {
                   <p className="text-headline-md font-headline-md font-bold text-on-surface">{stat.value}</p>
                   <p className="text-sm font-medium text-on-surface">{stat.label}</p>
                   <p className="mt-1 text-xs text-on-surface-variant">{stat.description}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard title="İş Ortakları" action={<PartnerCreateButton />}>
-          {overview.partners.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">İş ortağı bulunamadı.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              {overview.partners.map((partner) => (
-                <div
-                  key={partner.id}
-                  className="flex flex-col items-center gap-2 rounded-lg border border-outline-variant/50 bg-surface-container p-4"
-                >
-                  {partner.logoUrl ? (
-                    <div className="relative h-12 w-full">
-                      <Image
-                        src={partner.logoUrl}
-                        alt={partner.name}
-                        fill
-                        unoptimized
-                        className="object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <Icon name="business" className="text-3xl text-on-surface-variant" />
-                  )}
-                  <p className="truncate text-xs text-on-surface-variant">{partner.name}</p>
-                  <ActiveBadge active={partner.isActive} />
                 </div>
               ))}
             </div>

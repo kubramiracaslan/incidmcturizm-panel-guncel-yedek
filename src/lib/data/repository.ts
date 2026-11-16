@@ -38,6 +38,12 @@ export interface CreatePartnerInput {
   logoPath: string;
 }
 
+export interface UpdatePartnerInput {
+  name: string;
+  websiteUrl: string;
+  logoPath?: string;
+}
+
 export interface UpdateFeaturedSectionInput {
   title: string;
   subtitle: string;
@@ -112,6 +118,8 @@ export interface DataRepository {
   updateHomeLogo(input: UpdateHomeLogoInput): Promise<void>;
   updateHomeHero(input: UpdateHomeHeroInput): Promise<void>;
   createPartner(input: CreatePartnerInput): Promise<Partner>;
+  updatePartner(id: string, input: UpdatePartnerInput): Promise<Partner>;
+  deletePartner(id: string): Promise<void>;
   updateFeaturedSection(input: UpdateFeaturedSectionInput): Promise<void>;
   setTourPopular(tourId: string, isPopular: boolean): Promise<void>;
   createService(input: ServiceInput): Promise<SiteService>;

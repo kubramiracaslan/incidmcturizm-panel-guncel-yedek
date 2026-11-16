@@ -184,6 +184,49 @@ export async function createPartnerAction(formData: FormData): Promise<CreatePar
   }
 }
 
+export async function updatePartnerAction(id: string, formData: FormData): Promise<CreatePartnerResult> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor.", fieldErrors: {} };
+  }
+
+  const validation = validatePartnerInput({
+    name: String(formData.get("name") ?? ""),
+    websiteUrl: String(formData.get("websiteUrl") ?? ""),
+  });
+  if (!validation.valid) {
+    return { error: "Lütfen formu kontrol edin.", fieldErrors: validation.fieldErrors };
+  }
+
+  const logoPathRaw = formData.get("logoPath");
+  const logoPath = typeof logoPathRaw === "string" && logoPathRaw.trim() ? logoPathRaw.trim() : undefined;
+
+  try {
+    await repository.updatePartner(id, { ...validation.value, logoPath });
+    revalidatePath("/admin/ana-sayfa");
+    return { error: null, fieldErrors: {} };
+  } catch (error) {
+    logSupabaseError("updatePartnerAction", error);
+    return { error: "İş ortağı güncellenirken bir hata oluştu. Lütfen tekrar deneyin.", fieldErrors: {} };
+  }
+}
+
+export async function deletePartnerAction(id: string): Promise<SimpleActionResult> {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    return { error: "Bu işlem için yönetici yetkisi gerekiyor." };
+  }
+
+  try {
+    await repository.deletePartner(id);
+    revalidatePath("/admin/ana-sayfa");
+    return { error: null };
+  } catch (error) {
+    logSupabaseError("deletePartnerAction", error);
+    return { error: "İş ortağı silinirken bir hata oluştu. Lütfen tekrar deneyin." };
+  }
+}
+
 export interface UpdateFeaturedSectionResult {
   error: string | null;
 }

@@ -163,6 +163,16 @@ export async function updateTourAction(id: string, input: UpdateTourInput): Prom
     revalidatePath(`/admin/tur-katalogu/${id}`);
     return { error: null, fieldErrors: {} };
   } catch (error) {
+    if (error instanceof Error && error.message === "TOUR_CHILD_UPDATE_ROLLED_BACK") {
+      return { error: "Kaydedilemedi, değişiklikler geri alındı. Lütfen tekrar deneyin.", fieldErrors: {} };
+    }
+    if (error instanceof Error && error.message === "TOUR_CHILD_UPDATE_ROLLBACK_FAILED") {
+      return {
+        error:
+          "KRİTİK: Güncelleme başarısız oldu ve otomatik geri alma da başarısız oldu. Veriler tutarsız olabilir, lütfen hemen bir yöneticiyle iletişime geçin.",
+        fieldErrors: {},
+      };
+    }
     console.error("[updateTourAction] Supabase error:", error instanceof Error ? error.message : JSON.stringify(error));
     return { error: "Tur güncellenirken bir hata oluştu. Lütfen tekrar deneyin.", fieldErrors: {} };
   }

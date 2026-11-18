@@ -891,6 +891,172 @@ export class SupabaseDataRepository implements DataRepository {
       .single();
     if (selectError) throw selectError;
 
+    const childTables = [
+      "tour_highlights",
+      "tour_inclusions",
+      "tour_tips",
+      "tour_daily_programs",
+      "tour_dates_prices",
+      "tour_weather_data",
+      "tour_group_prices",
+    ] as const;
+
+    // Snapshot of every child table's current rows, read in parallel — the
+    // rollback below restores exactly this if anything from here on fails
+    // (including the final `tours` row update), so a half-written edit
+    // never reaches the user as a silent partial save.
+    const snapshotResults = await Promise.all(
+      childTables.map((table) => client.from(table).select("*").eq("tour_id", id)),
+    );
+    const snapshot: Partial<Record<(typeof childTables)[number], Record<string, unknown>[]>> = {};
+    childTables.forEach((table, index) => {
+      const { data, error } = snapshotResults[index];
+      if (error) throw error;
+      snapshot[table] = (data ?? []) as Record<string, unknown>[];
+    });
+
+    /**
+     * Deletes whatever's currently in the 7 child tables and reinserts the
+     * pre-edit snapshot (both halves run in parallel across tables), then
+     * throws a sentinel `updateTourAction` turns into a Turkish message.
+     * `failedStep` is logged server-side only — not shown to the user — so
+     * a bad edit can be traced to the exact table/operation that broke.
+     */
+    const rollback = async (failedStep: string, cause: unknown): Promise<never> => {
+      console.error(
+        `[updateTour] ${failedStep} hatası, alt tablolar geri alınıyor:`,
+        cause instanceof Error ? cause.message : cause,
+      );
+
+      try {
+        await Promise.all(
+          childTables.map(async (table) => {
+            const { error } = await client.from(table).delete().eq("tour_id", id);
+            if (error) throw error;
+          }),
+        );
+        await Promise.all(
+          childTables.map(async (table) => {
+            const rows = snapshot[table] ?? [];
+            if (rows.length === 0) return;
+            const { error } = await client.from(table).insert(rows);
+            if (error) throw error;
+          }),
+        );
+      } catch (rollbackError) {
+        console.error(
+          "[updateTour] ROLLBACK BAŞARISIZ — veriler tutarsız kalmış olabilir:",
+          rollbackError instanceof Error ? rollbackError.message : rollbackError,
+        );
+        throw new Error("TOUR_CHILD_UPDATE_ROLLBACK_FAILED");
+      }
+
+      throw new Error("TOUR_CHILD_UPDATE_ROLLED_BACK");
+    };
+
+    for (const table of childTables) {
+      const { error } = await client.from(table).delete().eq("tour_id", id);
+      if (error) await rollback(`${table} delete`, error);
+    }
+
+    if (input.highlights.length > 0) {
+      const { error } = await client.from("tour_highlights").insert(
+        input.highlights.map((h) => ({
+          tour_id: id,
+          content: h.content,
+          content_en: h.contentEn || null,
+          display_order: h.displayOrder,
+        })),
+      );
+      if (error) await rollback("tour_highlights insert", error);
+    }
+
+    if (input.inclusions.length > 0) {
+      const { error } = await client.from("tour_inclusions").insert(
+        input.inclusions.map((i) => ({
+          tour_id: id,
+          content: i.content,
+          content_en: i.contentEn || null,
+          display_order: i.displayOrder,
+        })),
+      );
+      if (error) await rollback("tour_inclusions insert", error);
+    }
+
+    if (input.tips.length > 0) {
+      const { error } = await client.from("tour_tips").insert(
+        input.tips.map((t) => ({
+          tour_id: id,
+          content: t.content,
+          content_en: t.contentEn || null,
+          icon_name: t.iconName,
+        })),
+      );
+      if (error) await rollback("tour_tips insert", error);
+    }
+
+    if (input.dailyPrograms.length > 0) {
+      const { error } = await client.from("tour_daily_programs").insert(
+        input.dailyPrograms.map((p) => ({
+          tour_id: id,
+          day_range: p.dayRange,
+          title: p.title,
+          title_en: p.titleEn || null,
+          description: p.description,
+          description_en: p.descriptionEn || null,
+        })),
+      );
+      if (error) await rollback("tour_daily_programs insert", error);
+    }
+
+    if (input.datesPrices.length > 0) {
+      const { error } = await client.from("tour_dates_prices").insert(
+        input.datesPrices.map((d) => ({
+          tour_id: id,
+          travel_period: d.travelPeriod,
+          price_category: d.priceCategory,
+          airline: d.airline,
+          price: d.price,
+          currency: d.currency,
+          display_order: d.displayOrder,
+        })),
+      );
+      if (error) await rollback("tour_dates_prices insert", error);
+    }
+
+    if (input.weatherData.length > 0) {
+      const { error } = await client.from("tour_weather_data").insert(
+        input.weatherData.map((w) => ({
+          tour_id: id,
+          month: w.month,
+          temperature: w.temperature,
+          rainfall: w.rainfall,
+          is_best_period: w.isBestPeriod,
+        })),
+      );
+      if (error) await rollback("tour_weather_data insert", error);
+    }
+
+    if (input.groupPrices.length > 0) {
+      const { error } = await client.from("tour_group_prices").insert(
+        input.groupPrices.map((g) => ({
+          tour_id: id,
+          row_label: g.rowLabel,
+          group_label: g.groupLabel,
+          min_pax: g.minPax,
+          price: g.price,
+          currency: g.currency,
+          sort_order: g.sortOrder,
+        })),
+      );
+      if (error) await rollback("tour_group_prices insert", error);
+    }
+
+    // Only touch the tour's own columns once every child table rewrite
+    // above has actually succeeded — if this fails, the child tables
+    // (already rewritten with the new data) are rolled back too, so a
+    // failed save never leaves the tour's title/price ahead of its
+    // program/prices/highlights.
     const { data: tourRow, error: tourError } = await client
       .from("tours")
       .update({
@@ -919,116 +1085,9 @@ export class SupabaseDataRepository implements DataRepository {
       .eq("id", id)
       .select("id, slug")
       .single();
-    if (tourError) throw tourError;
+    if (tourError || !tourRow) await rollback("tours update", tourError);
 
-    const childTables = [
-      "tour_highlights",
-      "tour_inclusions",
-      "tour_tips",
-      "tour_daily_programs",
-      "tour_dates_prices",
-      "tour_weather_data",
-      "tour_group_prices",
-    ] as const;
-    for (const table of childTables) {
-      const { error } = await client.from(table).delete().eq("tour_id", id);
-      if (error) throw error;
-    }
-
-    if (input.highlights.length > 0) {
-      const { error } = await client.from("tour_highlights").insert(
-        input.highlights.map((h) => ({
-          tour_id: id,
-          content: h.content,
-          content_en: h.contentEn || null,
-          display_order: h.displayOrder,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.inclusions.length > 0) {
-      const { error } = await client.from("tour_inclusions").insert(
-        input.inclusions.map((i) => ({
-          tour_id: id,
-          content: i.content,
-          content_en: i.contentEn || null,
-          display_order: i.displayOrder,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.tips.length > 0) {
-      const { error } = await client.from("tour_tips").insert(
-        input.tips.map((t) => ({
-          tour_id: id,
-          content: t.content,
-          content_en: t.contentEn || null,
-          icon_name: t.iconName,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.dailyPrograms.length > 0) {
-      const { error } = await client.from("tour_daily_programs").insert(
-        input.dailyPrograms.map((p) => ({
-          tour_id: id,
-          day_range: p.dayRange,
-          title: p.title,
-          title_en: p.titleEn || null,
-          description: p.description,
-          description_en: p.descriptionEn || null,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.datesPrices.length > 0) {
-      const { error } = await client.from("tour_dates_prices").insert(
-        input.datesPrices.map((d) => ({
-          tour_id: id,
-          travel_period: d.travelPeriod,
-          price_category: d.priceCategory,
-          airline: d.airline,
-          price: d.price,
-          currency: d.currency,
-          display_order: d.displayOrder,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.weatherData.length > 0) {
-      const { error } = await client.from("tour_weather_data").insert(
-        input.weatherData.map((w) => ({
-          tour_id: id,
-          month: w.month,
-          temperature: w.temperature,
-          rainfall: w.rainfall,
-          is_best_period: w.isBestPeriod,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    if (input.groupPrices.length > 0) {
-      const { error } = await client.from("tour_group_prices").insert(
-        input.groupPrices.map((g) => ({
-          tour_id: id,
-          row_label: g.rowLabel,
-          group_label: g.groupLabel,
-          min_pax: g.minPax,
-          price: g.price,
-          currency: g.currency,
-          sort_order: g.sortOrder,
-        })),
-      );
-      if (error) throw error;
-    }
-
-    return { id, slug: (tourRow.slug as string) ?? (existing.slug as string) };
+    return { id, slug: (tourRow!.slug as string) ?? (existing.slug as string) };
   }
 
   /**
